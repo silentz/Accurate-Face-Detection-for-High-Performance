@@ -12,6 +12,7 @@ import collections
 
 import cv2
 import torch
+import numpy as np
 
 # ===================== [CODE] =====================
 
@@ -71,7 +72,28 @@ class WIDERFACEImage:
 
 
     def _load_image(self, filename: typing.Union[str, bytes, os.PathLike]) -> torch.Tensor:
-        pass
+        """
+        Load image from file on filesystem into RAM.
+
+        Parameters
+        ----------
+        filename
+            Path to image.
+
+        Returns
+        -------
+        torch.Tensor containing non-normalized image pixels, each pixel is a tuple
+        of three 0-255 integers, each represents rgb channel value.
+        """
+
+        try:
+            image_pixels = cv2.imread(filename)
+            image_pixels = cv2.cvtColor(image_pixels, cv2.COLOR_BGR2RGB)
+            image_pixels = image_pixels.astype(np.float32)
+            image_pixels = torch.from_numpy(image_pixels)
+            return image_pixels
+        except:
+            raise ValueError(f'Cannot load image: {filename}')
 
 
 
@@ -190,8 +212,26 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
 
 
     def __getitem__(self, index: typing.Union[int, str, bytes, os.PathLike]) -> WIDERFACEImage:
-        pass
+        """
+        Get image of dataset.
+
+        Parameters
+        ----------
+        index
+            Path to an image from dataset or index.
+
+        Returns
+        -------
+        `WIDERFACEImage` object representing required image.
+        """
+
+        return self._images[index]
 
 
     def __len__(self) -> int:
-        pass
+        """
+        Returns count of images in the dataset.
+        """
+
+        return len(self._images)
+
