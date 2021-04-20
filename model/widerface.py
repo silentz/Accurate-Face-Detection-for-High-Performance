@@ -60,11 +60,9 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
             appealed).
         """
 
-        # check if root dir exists
         if not os.path.exists(root):
             raise ValueError('Root is invalid: directory does not exist')
 
-        # check if metafile exists
         if not os.path.exists(meta):
             raise ValueError('Metafile is invalid: file does not exist')
 
