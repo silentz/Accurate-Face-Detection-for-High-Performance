@@ -13,6 +13,7 @@ import collections
 import cv2
 import torch
 import numpy as np
+from PIL import Image, ImageDraw
 
 # ===================== [CODE] =====================
 
@@ -36,12 +37,12 @@ class WIDERFACEImage:
                     'y': 20,
                     'w': 100,
                     'h': 120,
-                    'blur': 0,
-                    'expression': 0,
-                    'illumination': 1,
-                    'invalid': 0,
-                    'occlusion': 0,
-                    'pose': 0,
+                    'blur': 0,          # optional
+                    'expression': 0,    # optional
+                    'illumination': 1,  # optional
+                    'invalid': 0,       # optional
+                    'occlusion': 0,     # optional
+                    'pose': 0,          # optional
                 }
 
         lazy_load
@@ -57,21 +58,80 @@ class WIDERFACEImage:
             self.pixels = self._load_image(self.filename)
 
 
-    @property
-    def pixels(self) -> torch.Tensor:
+    def pixels(self, format: str = 'torch') -> typing.Union[torch.Tensor, np.ndarray, Image]:
         """
         Get image pixels as `torch.Tensor`. Image pixels are not
         normilized (each pixels is a tuple of three 0-255 integers,
         each represents rgb channel value).
+
+        Parameters
+        ----------
+        format
+            Format used to store an image. Currently these
+            formats are supported:
+                * torch:  return image as torch.Tensor
+                * numpy:  return image as numpy.ndarray
+                * pillow: return image as PIL.Image
         """
 
         if self._pixels is None:
             self._pixels = self._load_image(self.filename)
 
-        return self._pixels
+        if format == 'torch':
+            return torch.from_numpy(self._pixels)
+
+        if format == 'numpy':
+            return np.copy(self._pixels)
+
+        if format == 'pillow':
+            return Image.fromarray(np.uint8(self._pixels))
+
+        raise ValueError(f"Unsupported image format: {format}")
 
 
-    def _load_image(self, filename: typing.Union[str, bytes, os.PathLike]) -> torch.Tensor:
+    def render(self, format: str = 'torch',
+                     outline: typing.Tuple[int, int, int] = (0, 255, 0),
+                     width: int = 1) -> typing.Union[torch.Tensor, np.ndarray, Image]:
+        """
+        Get image pixels with applied bboxes as `torch.Tensor`. Image
+        pixels are not normalized (each pixel is a tuple of three 0-255 integers,
+        each represents rgb channel value).
+
+        Parameters
+        ----------
+        format
+            Format used to store an image. Currently these
+            formats are supported:
+                * torch:  return image as torch.Tensor
+                * numpy:  return image as numpy.ndarray
+                * pillow: return image as PIL.Image
+        outline
+            RGB color to use to paint bounding boxes.
+        width
+            Width of stroke to use to paint bounding boxes.
+        """
+
+        image = self.pixels(format='pillow')
+        draw = ImageDraw.Draw(image)
+
+        for bbox in self.bboxes:
+            x, y = bbox.get('x', None), bbox.get('y', None)
+            w, h = bbox.get('w', None), bbox.get('h', None)
+            draw.rectangle([(x, y), (x + w, y + h)], fill=None, outline=outline, width=width)
+
+        if format == 'pillow':
+            return image
+
+        if format == 'torch':
+            return torch.from_numpy(np.array(image))
+
+        if format == 'numpy':
+            return np.array(image)
+
+        raise ValueError(f"Unsupported image format: {format}")
+
+
+    def _load_image(self, filename: typing.Union[str, bytes, os.PathLike]) -> np.ndarray:
         """
         Load image from file on filesystem into RAM.
 
@@ -82,7 +142,7 @@ class WIDERFACEImage:
 
         Returns
         -------
-        torch.Tensor containing non-normalized image pixels, each pixel is a tuple
+        numpy.ndarray containing non-normalized image pixels, each pixel is a tuple
         of three 0-255 integers, each represents rgb channel value.
         """
 
@@ -90,7 +150,6 @@ class WIDERFACEImage:
             image_pixels = cv2.imread(filename)
             image_pixels = cv2.cvtColor(image_pixels, cv2.COLOR_BGR2RGB)
             image_pixels = image_pixels.astype(np.float32)
-            image_pixels = torch.from_numpy(image_pixels)
             return image_pixels
         except:
             raise ValueError(f'Cannot load image: {filename}')
