@@ -33,16 +33,14 @@ class WIDERFACEImage:
             List containing image bounding boxes information. Each element
             is a dictionary with following format:
                 {
-                    'x': 10,
-                    'y': 20,
-                    'w': 100,
-                    'h': 120,
-                    'blur': 0,          # optional
-                    'expression': 0,    # optional
-                    'illumination': 1,  # optional
-                    'invalid': 0,       # optional
-                    'occlusion': 0,     # optional
-                    'pose': 0,          # optional
+                    'x': 10,                # required: int
+                    'y': 20,                # required: int
+                    'w': 100,               # required: int
+                    'h': 120,               # required: int
+                    'outline': (0, 255, 0), # optional: color of bbox
+                    'width': 1,             # optional: bbox width
+                    'label': '',            # optional: bbox label
+                    ...                     # other info will not be used
                 }
 
         lazy_load
@@ -155,6 +153,38 @@ class WIDERFACEImage:
             raise ValueError(f'Cannot load image: {filename}')
 
 
+    def add_bbox(self, x: int, y: int, w: int, h: int,
+                       color: int = (0, 255, 0),
+                       width: int = 1,
+                       label: str = '',
+                       **kwargs):
+        """
+        Append new bbox to image object.
+
+        Parameters
+        ----------
+        x, y, w, h
+            Coordinates of left upper corner, width and height of
+            bouding box.
+        color
+            Color of bounding box.
+        width
+            Width of bounding box outline.
+        label
+            Label of bounding box.
+        """
+        self.bboxes.append({
+                'x': x,
+                'y': y,
+                'w': w,
+                'h': h,
+                'color': copy.deepcopy(color),
+                'width': width,
+                'label': copy.deepcopy(label),
+                **kwargs,
+            })
+
+
 
 class WIDERFACEDataset(torch.utils.data.Dataset):
     """
@@ -258,7 +288,14 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
                 for bbox_id in range(bbox_count):
                     bbox = [int(x) for x in bbox_raw[bbox_id].split()]
                     bbox = {x: y for x, y in zip(bbox_keys, bbox)}
+
+                    if len(bbox) < 4:
+                        raise SyntaxError(f'Metafile syntax error: line {current_line+3+bbox_id}' \
+                                ' should contain at least 4 integers')
+
                     bbox_clean.append(bbox)
+            except SyntaxError as err:
+                raise err
             except:
                 raise SyntaxError(f'Metafile syntax error: line {current_line+3+bbox_id}' \
                                     ' should contain only integers')
