@@ -14,6 +14,7 @@ import cv2
 import torch
 import numpy as np
 from PIL import Image, ImageDraw
+from PIL.Image import Image as PILImage
 
 # ===================== [CODE] =====================
 
@@ -56,7 +57,7 @@ class WIDERFACEImage:
             self.pixels = self._load_image(self.filename)
 
 
-    def pixels(self, format: str = 'torch') -> typing.Union[torch.Tensor, np.ndarray, Image]:
+    def pixels(self, format: str = 'torch') -> typing.Union[torch.Tensor, np.ndarray, PILImage]:
         """
         Get image pixels as `torch.Tensor`. Image pixels are not
         normilized (each pixels is a tuple of three 0-255 integers,
@@ -89,7 +90,7 @@ class WIDERFACEImage:
 
     def render(self, format: str = 'torch',
                      outline: typing.Tuple[int, int, int] = (0, 255, 0),
-                     width: int = 1) -> typing.Union[torch.Tensor, np.ndarray, Image]:
+                     width: int = 1) -> typing.Union[torch.Tensor, np.ndarray, PILImage]:
         """
         Get image pixels with applied bboxes as `torch.Tensor`. Image
         pixels are not normalized (each pixel is a tuple of three 0-255 integers,
@@ -237,7 +238,7 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
         self._root_dir = copy.deepcopy(root)
         self._metafile = copy.deepcopy(meta)
         self._lazy_load_images = lazy_load_images
-        self._images = self._read_metafile(meta, lazy_load_images)
+        self._images, self._idx2key = self._read_metafile(meta, lazy_load_images)
 
 
     def _read_metafile(self, meta: typing.Union[str, bytes, os.PathLike],
@@ -304,7 +305,8 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
                                                 lazy_load=lazy_load_images)
             current_line += 2 + bbox_count
 
-        return result
+        idx2key = [x for x in result.keys()]
+        return result, idx2key
 
 
     def __getitem__(self, index: typing.Union[int, str, bytes, os.PathLike]) -> WIDERFACEImage:
@@ -320,6 +322,9 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
         -------
         `WIDERFACEImage` object representing required image.
         """
+
+        if isinstance(index, int):
+            index = self._idx2key[index]
 
         return self._images[index]
 
