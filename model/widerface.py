@@ -49,12 +49,12 @@ class WIDERFACEImage:
             Otherwise, load image into RAM immediately.
         """
 
-        self.filename = copy.deepcopy(filename)
+        self.filename = filename
         self.bboxes = copy.deepcopy(bboxes)
         self._pixels = None
 
         if not lazy_load:
-            self.pixels = self._load_image(self.filename)
+            self._pixels = self._load_image(self.filename)
 
 
     def pixels(self, format: str = 'torch') -> typing.Union[torch.Tensor, np.ndarray, PILImage]:
@@ -88,9 +88,7 @@ class WIDERFACEImage:
         raise ValueError(f"Unsupported image format: {format}")
 
 
-    def render(self, format: str = 'torch',
-                     outline: typing.Tuple[int, int, int] = (0, 255, 0),
-                     width: int = 1) -> typing.Union[torch.Tensor, np.ndarray, PILImage]:
+    def render(self, format: str = 'torch') -> typing.Union[torch.Tensor, np.ndarray, PILImage]:
         """
         Get image pixels with applied bboxes as `torch.Tensor`. Image
         pixels are not normalized (each pixel is a tuple of three 0-255 integers,
@@ -104,10 +102,6 @@ class WIDERFACEImage:
                 * torch:  return image as torch.Tensor
                 * numpy:  return image as numpy.ndarray
                 * pillow: return image as PIL.Image
-        outline
-            RGB color to use to paint bounding boxes.
-        width
-            Width of stroke to use to paint bounding boxes.
         """
 
         image = self.pixels(format='pillow')
@@ -116,16 +110,18 @@ class WIDERFACEImage:
         for bbox in self.bboxes:
             x, y = bbox.get('x', None), bbox.get('y', None)
             w, h = bbox.get('w', None), bbox.get('h', None)
+            outline = bbox.get('color', (0, 255, 0))
+            width = bbox.get('width', 1)
             draw.rectangle([(x, y), (x + w, y + h)], fill=None, outline=outline, width=width)
 
         if format == 'pillow':
             return image
 
         if format == 'torch':
-            return torch.from_numpy(np.array(image))
+            return torch.from_numpy(np.array(image, dtype=np.float32))
 
         if format == 'numpy':
-            return np.array(image)
+            return np.array(image, dtype=np.float32)
 
         raise ValueError(f"Unsupported image format: {format}")
 
@@ -179,9 +175,9 @@ class WIDERFACEImage:
                 'y': y,
                 'w': w,
                 'h': h,
-                'color': copy.deepcopy(color),
+                'color': color,
                 'width': width,
-                'label': copy.deepcopy(label),
+                'label': label,
                 **kwargs,
             })
 
@@ -235,8 +231,8 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
         if not isinstance(lazy_load_images, bool):
             raise ValueError('Lazy load option invalid: not bool')
 
-        self._root_dir = copy.deepcopy(root)
-        self._metafile = copy.deepcopy(meta)
+        self._root_dir = root
+        self._metafile = meta
         self._lazy_load_images = lazy_load_images
         self._images, self._idx2key = self._read_metafile(meta, lazy_load_images)
 
