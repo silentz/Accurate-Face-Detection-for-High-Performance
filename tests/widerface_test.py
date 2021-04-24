@@ -6,7 +6,7 @@ Test suite for `model/widerface.py` module.
 
 import pytest
 
-from .model.widerface import (
+from ..model.widerface import (
     WIDERFACEImage,
     WIDERFACEDataset,
 )
@@ -16,6 +16,7 @@ from .model.widerface import (
 
 class TestWIDERFACEImage:
     pass
+
 
 
 class TestWIDERFACEDataset:
