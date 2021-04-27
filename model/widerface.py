@@ -8,6 +8,7 @@ for images and image annotations.
 import os
 import copy
 import typing
+import pathlib
 import collections
 
 import cv2
@@ -294,7 +295,8 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
                 raise SyntaxError(f'Metafile syntax error: line {current_line+3+bbox_id}' \
                                     ' should contain integers')
 
-            result[filename] = WIDERFACEImage(filename=filename, bboxes=bbox_clean,
+            file_path = pathlib.Path(filename)
+            result[file_path] = WIDERFACEImage(filename=str(file_path), bboxes=bbox_clean,
                                                 lazy_load=lazy_load_images)
             current_line += 2 + bbox_count
 
@@ -319,7 +321,8 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
         if isinstance(index, int):
             index = self._idx2key[index]
 
-        return self._images[index]
+        file_path = pathlib.Path(index)
+        return self._images[file_path]
 
 
     def __len__(self) -> int:

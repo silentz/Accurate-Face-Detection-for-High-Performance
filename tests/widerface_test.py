@@ -163,3 +163,25 @@ class TestWIDERFACEDataset:
         WIDERFACEDataset(root='./tests/test_dataset/',
                          meta='./tests/test_dataset/meta_ok.txt')
 
+
+    def test_len(self):
+        dataset = WIDERFACEDataset(root='./tests/test_dataset/',
+                                  meta='./tests/test_dataset/meta_length_1.txt')
+        assert len(dataset) == 1
+
+        dataset = WIDERFACEDataset(root='./tests/test_dataset/',
+                                  meta='./tests/test_dataset/meta_length_2.txt')
+        assert len(dataset) == 2
+
+
+    def test_getitem(self):
+        dataset = WIDERFACEDataset(root='./tests/test_dataset/',
+                                   meta='./tests/test_dataset/meta_length_2.txt')
+
+        # getitem by index
+        assert dataset[0].filename == 'tests/test_dataset/mask.png'
+
+        # getitem by it's name
+        assert dataset['./tests/test_dataset/mask.png'] == dataset[0]
+        assert dataset['tests/test_dataset/mask.png'] == dataset[0]
+

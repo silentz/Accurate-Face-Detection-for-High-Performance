@@ -1,0 +1,6 @@
+mask.png
+1
+45 45 170 150
+bbox_geeen_w1.png
+1
+45 45 170 150
