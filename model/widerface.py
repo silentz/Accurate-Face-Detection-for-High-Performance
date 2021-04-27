@@ -192,7 +192,7 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
 
     def __init__(self, root: typing.Union[str, bytes, os.PathLike],
                        meta: typing.Union[str, bytes, os.PathLike],
-                       lazy_load_images: bool = True):
+                       lazy_load: bool = True):
         """
         Parameters
         ----------
@@ -215,7 +215,7 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
             For more information of metafile content, see readme.txt file
             of WIDER FACE dataset annotation archive.
 
-        lazy_load_images
+        lazy_load
             If `True`, __getitem__will return "heavy" `WIDERFACEImage` objects with image pixels
             loaded into RAM. Otherwise, __getitem__ will return "light" `WIDERFACEImage` objects
             without loading image pixels into RAM (loading performs automaticly when pixels are
@@ -228,13 +228,13 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
         if not os.path.exists(meta):
             raise ValueError('Metafile is invalid: file does not exist')
 
-        if not isinstance(lazy_load_images, bool):
+        if not isinstance(lazy_load, bool):
             raise ValueError('Lazy load option invalid: not bool')
 
         self._root_dir = root
         self._metafile = meta
-        self._lazy_load_images = lazy_load_images
-        self._images, self._idx2key = self._read_metafile(meta, lazy_load_images)
+        self._lazy_load = lazy_load
+        self._images, self._idx2key = self._read_metafile(meta, lazy_load)
 
 
     def _read_metafile(self, meta: typing.Union[str, bytes, os.PathLike],
@@ -258,6 +258,7 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
 
         with open(meta, 'r') as file:
             metafile_lines = [x.strip() for x in file.readlines()]
+            metafile_lines = [x for x in metafile_lines if len(x) > 0]
             total_lines = len(metafile_lines)
 
         while current_line < total_lines:
@@ -275,11 +276,7 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
             except:
                 raise SyntaxError(f'Metafile format error: line {current_line+2} should be integer')
 
-            try:
-                bbox_raw = metafile_lines[current_line + 2:current_line + 2 + bbox_count]
-            except:
-                raise SyntaxError(f"Metafile format error: lines {current_line+3}-{current_line+3+bbox_count}" \
-                                    " should contain bbox descriptions")
+            bbox_raw = metafile_lines[current_line + 2:current_line + 2 + bbox_count]
 
             try:
                 for bbox_id in range(bbox_count):
@@ -295,7 +292,7 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
                 raise err
             except:
                 raise SyntaxError(f'Metafile syntax error: line {current_line+3+bbox_id}' \
-                                    ' should contain only integers')
+                                    ' should contain integers')
 
             result[filename] = WIDERFACEImage(filename=filename, bboxes=bbox_clean,
                                                 lazy_load=lazy_load_images)

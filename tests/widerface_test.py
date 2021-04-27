@@ -106,5 +106,60 @@ class TestWIDERFACEImage:
 
 
 class TestWIDERFACEDataset:
-    pass
+
+    def test_init(self):
+        # bad root directory
+        with pytest.raises(ValueError):
+            WIDERFACEDataset(root='./tests/test_dataset/does_not_exist',
+                             meta='./tests/test_dataset/meta_ok.txt')
+
+        # bad metafile path
+        with pytest.raises(ValueError):
+            WIDERFACEDataset(root='./tests/test_dataset/',
+                             meta='./tests/test_dataset/does_not_exist_meta.txt')
+
+        # invalid lazy_load parameter
+        with pytest.raises(ValueError):
+            WIDERFACEDataset(root='./tests/test_dataset/',
+                             meta='./tests/test_dataset/meta_ok.txt',
+                             lazy_load='True')
+
+        # metafile error: no bbox count
+        with pytest.raises(SyntaxError) as err:
+            WIDERFACEDataset(root='./tests/test_dataset/',
+                             meta='./tests/test_dataset/meta_no_count.txt')
+
+        assert 'Metafile format error: line 2 should contain bbox count' == str(err.value)
+
+        # metafile error: bbox count not int
+        with pytest.raises(SyntaxError) as err:
+            WIDERFACEDataset(root='./tests/test_dataset/',
+                             meta='./tests/test_dataset/meta_count_non_int.txt')
+
+        assert 'Metafile format error: line 2 should be integer' == str(err.value)
+
+        # metafile error: not enough bboxes
+        with pytest.raises(SyntaxError) as err:
+            WIDERFACEDataset(root='./tests/test_dataset/',
+                             meta='./tests/test_dataset/meta_no_bbox.txt')
+
+        assert 'Metafile syntax error: line 4 should contain integers' == str(err.value)
+
+        # metafile error: bbox description contains non-int
+        with pytest.raises(SyntaxError) as err:
+            WIDERFACEDataset(root='./tests/test_dataset/',
+                             meta='./tests/test_dataset/meta_not_coords.txt')
+
+        assert 'Metafile syntax error: line 3 should contain at least 4 integers' == str(err.value)
+
+        # metafile error: bbox description contains non-int
+        with pytest.raises(SyntaxError) as err:
+            WIDERFACEDataset(root='./tests/test_dataset/',
+                             meta='./tests/test_dataset/meta_bbox_not_int.txt')
+
+        assert 'Metafile syntax error: line 3 should contain integers' == str(err.value)
+
+        # metafile ok
+        WIDERFACEDataset(root='./tests/test_dataset/',
+                         meta='./tests/test_dataset/meta_ok.txt')
 
