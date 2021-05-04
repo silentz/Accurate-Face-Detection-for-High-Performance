@@ -61,19 +61,22 @@ class TestFeaturePyramidNetwork:
 
         input_tensors = [
             torch.Tensor([[[
-                [1., 1., 1.],
-                [1., 1., 1.],
-                [1., 1., 1.],
+                [2., 2., 2., 2., 2., 2.],
+                [2., 2., 2., 2., 2., 2.],
+                [2., 2., 2., 2., 2., 2.],
+                [2., 2., 2., 2., 2., 2.],
+                [2., 2., 2., 2., 2., 2.],
+                [2., 2., 2., 2., 2., 2.],
             ]]]),
             torch.Tensor([[[
-                [2., 2., 2.],
-                [2., 2., 2.],
-                [2., 2., 2.],
+                [1., 1., 1.],
+                [1., 1., 1.],
+                [1., 1., 1.],
             ]]]),
         ]
 
         output = fpn(input_tensors)
         assert len(output) == 2
-        assert output[0].shape == (1, 8, 3, 3)
+        assert output[0].shape == (1, 8, 6, 6)
         assert output[1].shape == (1, 8, 3, 3)
 
