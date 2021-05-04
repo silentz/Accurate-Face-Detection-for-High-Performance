@@ -51,3 +51,29 @@ class TestFeaturePyramidNetwork:
             assert layer[0].out_channels == 16
             assert layer[1].num_features == 16
 
+
+    def test_forward(self):
+        fpn = FeaturePyramidNetwork(
+                n_levels=2,
+                in_channels=1,
+                out_channels=8,
+            )
+
+        input_tensors = [
+            torch.Tensor([[[
+                [1., 1., 1.],
+                [1., 1., 1.],
+                [1., 1., 1.],
+            ]]]),
+            torch.Tensor([[[
+                [2., 2., 2.],
+                [2., 2., 2.],
+                [2., 2., 2.],
+            ]]]),
+        ]
+
+        output = fpn(input_tensors)
+        assert len(output) == 2
+        assert output[0].shape == (1, 8, 3, 3)
+        assert output[1].shape == (1, 8, 3, 3)
+
