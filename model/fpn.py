@@ -14,7 +14,7 @@ import torch.nn.functional as F
 # ===================== [CODE] =====================
 
 
-class FeaturePyramid(nn.Module):
+class FeaturePyramidNetwork(nn.Module):
     """
     Feature pyramid network layer implementation.
     """
@@ -22,8 +22,8 @@ class FeaturePyramid(nn.Module):
     def __init__(self, n_levels: int,
                        in_channels: Union[int, List[int]],
                        out_channels: int = 256,
-                       interpolate_scale_factor: float = 2,
-                       interpolate_mode: str = 'nearest'):
+                       scale_factor: float = 2,
+                       interpolation_mode: str = 'nearest'):
         """
         Parameters
         ----------
@@ -36,26 +36,28 @@ class FeaturePyramid(nn.Module):
         out_channels
             Channel count of feature pyramid network
             result in each layer.
-        interpolate_scale_factor
+        scale_factor
             Scale factor of each interpolation procedure
             between layers.
-        interpolate_mode
+        interpolation_mode
             Interpolation mode.
         """
+
+        super(FeaturePyramidNetwork, self).__init__()
 
         self.n_levels = n_levels
         self.in_channels = copy.deepcopy(in_channels)
         self.out_channels = copy.deepcopy(out_channels)
-        self.scale_factor = interpolate_scale_factor
-        self.interpolate_mode = interpolate_mode
+        self.scale_factor = scale_factor
+        self.interpolation_mode = interpolation_mode
 
         if not isinstance(in_channels, list):
             self.in_channels = [in_channels for _ in range(n_levels)]
 
         self._input_layers = nn.ModuleList(
-                nn.ModuleList(
+                nn.Sequential(
                     nn.Conv2d(
-                        in_channels=in_channels[idx],
+                        in_channels=self.in_channels[idx],
                         out_channels=out_channels,
                         kernel_size=1,
                         bias=False, #  batchnorm is used instead
@@ -67,7 +69,7 @@ class FeaturePyramid(nn.Module):
             )
 
         self._merge_layers = nn.ModuleList(
-                nn.ModuleList(
+                nn.Sequential(
                     nn.Conv2d(
                         in_channels=out_channels,
                         out_channels=out_channels,
@@ -98,7 +100,7 @@ class FeaturePyramid(nn.Module):
 
         for idx in range(self.n_levels - 1):
             upsampled = F.interpolate(intermediate[idx], scale_factor=self.scale_factor,
-                                        mode=self.interpolate_mode)
+                                        mode=self.interpolation_mode)
             raw_merged = upsampled + intermediate[idx + 1]
             intermediate[idx + 1] = self._merge_layers[idx](raw_merged)
 
