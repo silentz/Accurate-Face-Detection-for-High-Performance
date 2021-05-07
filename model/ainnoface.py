@@ -48,6 +48,7 @@ class AInnoFace(nn.Module):
         super(AInnoFace, self).__init__()
         self.interpolation_mode = interpolation_mode
         self._channels = 256
+        self._backbone_channels = [256, 512, 1024, 2048]
 
         # bottom-up path layers
         self.backbone = resnet152_pretrained()
@@ -56,21 +57,23 @@ class AInnoFace(nn.Module):
         for parameter in self.backbone.parameters():
             parameter.requires_grad = False
 
-        self.raw_level5 = nn.Conv2d(2048, 1024, kernel_size=3, stride=2, padding=1)
-        self.raw_level6 = nn.Conv2d(1024, self._channels, kernel_size=3, stride=2, padding=1)
+        self.raw_level5 = nn.Conv2d(self._backbone_channels[3], self._backbone_channels[3] // 2,
+                                        kernel_size=3, stride=2, padding=1)
+        self.raw_level6 = nn.Conv2d(self._backbone_channels[3] // 2, self._channels,
+                                        kernel_size=3, stride=2, padding=1)
 
         # lateral connections of feature pyramid network
-        self.fpn_lateral1 = nn.Conv2d(256,  self._channels, kernel_size=1)
-        self.fpn_lateral2 = nn.Conv2d(512,  self._channels, kernel_size=1)
-        self.fpn_lateral3 = nn.Conv2d(1024, self._channels, kernel_size=1)
-        self.fpn_lateral4 = nn.Conv2d(2048, self._channels, kernel_size=1)
+        self.fpn_lateral1 = nn.Conv2d(self._backbone_channels[0],  self._channels, kernel_size=1)
+        self.fpn_lateral2 = nn.Conv2d(self._backbone_channels[1],  self._channels, kernel_size=1)
+        self.fpn_lateral3 = nn.Conv2d(self._backbone_channels[2], self._channels, kernel_size=1)
+        self.fpn_lateral4 = nn.Conv2d(self._backbone_channels[3], self._channels, kernel_size=1)
 
         # first stage of selective refinement network
-        self.srn_fs_conv1 = nn.Conv2d(256,  self._channels, kernel_size=1)
-        self.srn_fs_conv2 = nn.Conv2d(512,  self._channels, kernel_size=1)
-        self.srn_fs_conv3 = nn.Conv2d(1024, self._channels, kernel_size=1)
-        self.srn_fs_conv4 = nn.Conv2d(2048, self._channels, kernel_size=1)
-        self.srn_fs_conv5 = nn.Conv2d(1024, self._channels, kernel_size=1)
+        self.srn_fs_conv1 = nn.Conv2d(self._backbone_channels[0], self._channels, kernel_size=1)
+        self.srn_fs_conv2 = nn.Conv2d(self._backbone_channels[1], self._channels, kernel_size=1)
+        self.srn_fs_conv3 = nn.Conv2d(self._backbone_channels[2], self._channels, kernel_size=1)
+        self.srn_fs_conv4 = nn.Conv2d(self._backbone_channels[3], self._channels, kernel_size=1)
+        self.srn_fs_conv5 = nn.Conv2d(self._backbone_channels[3] // 2, self._channels, kernel_size=1)
         self.srn_fs_conv6 = nn.Conv2d(self._channels,  self._channels, kernel_size=1)
 
         # second stage of selective refinement network
