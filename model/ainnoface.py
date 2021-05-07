@@ -51,6 +51,10 @@ class AInnoFace(nn.Module):
         # bottom-up path layers
         self.backbone = resnet152_pretrained()
         self.backbone.eval()
+
+        for parameter in self.backbone.parameters():
+            parameter.requires_grad = False
+
         self.raw_level5 = nn.Conv2d(2048, 1024, kernel_size=3, stride=2, padding=1)
         self.raw_level6 = nn.Conv2d(1024,  256, kernel_size=3, stride=2, padding=1)
 
