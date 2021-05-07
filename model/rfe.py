@@ -14,19 +14,16 @@ import torch.nn.functional as F
 
 class ReceptiveFieldEnrichment(nn.Module):
 
-    def __init__(self, in_channels: int,
-                       inter_channels: int = 64):
+    def __init__(self, in_channels: int):
         """
         Parameters
         ----------
         in_channels
             Count of channels in input tensor.
-        inter_channels
-            Count of internal operations channels. 64 by default.
         """
 
         super(ReceptiveFieldEnrichment, self).__init__()
-        self._channels = inter_channels
+        self._channels = in_channels // 4
 
         self.branch_1 = nn.Sequential(
                 nn.Conv2d(in_channels,    self._channels, kernel_size=(1, 1), padding=(0, 0)),
