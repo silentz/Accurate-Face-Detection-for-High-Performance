@@ -25,6 +25,7 @@ from .resnet import (
 )
 
 from .widerface import WIDERFACEImage
+from .rfe import ReceptiveFieldEnrichment
 
 # ===================== [CODE] =====================
 
@@ -32,7 +33,7 @@ from .widerface import WIDERFACEImage
 class AInnoFace(nn.Module):
 
     def __init__(self, num_anchors: int = 2,
-                       interpolation_mode: str = 'bilinear'):
+                       interpolation_mode: str = 'nearest'):
         """
         Parameters
         ----------
@@ -49,6 +50,7 @@ class AInnoFace(nn.Module):
 
         # bottom-up path layers
         self.backbone = resnet152_pretrained()
+        self.backbone.eval()
         self.raw_level5 = nn.Conv2d(2048, 1024, kernel_size=3, stride=2, padding=1)
         self.raw_level6 = nn.Conv2d(1024,  256, kernel_size=3, stride=2, padding=1)
 
@@ -74,9 +76,21 @@ class AInnoFace(nn.Module):
         self.srn_ss_conv5 = nn.Conv2d(256, 256, kernel_size=3, padding=1, stride=2)
         self.srn_ss_conv6 = nn.Conv2d(256, 256, kernel_size=3, padding=1, stride=2)
 
+        # classification head
+        self.cls_head = nn.Sequential(
+                ReceptiveFieldEnrichment(in_channels=256),
+                nn.Conv2d(256, num_anchors, kernel_size=1),
+            )
+
+        # bbox regression head
+        self.box_head = nn.Sequential(
+                ReceptiveFieldEnrichment(in_channels=256),
+                nn.Conv2d(256, num_anchors * 4, kernel_size=1),
+            )
+
 
     def _fpn_upsample(self, tensor: torch.Tensor) -> torch.Tensor:
-        return F.interpolate(tensor, scale_factor=2, model=self.interpolation_mode)
+        return F.interpolate(tensor, scale_factor=2, mode=self.interpolation_mode)
 
 
     def forward(self, images: Union[torch.Tensor, np.ndarray,
@@ -146,4 +160,17 @@ class AInnoFace(nn.Module):
         srn_ss_level4 = F.relu(self.srn_ss_conv4(fpn_level4))
         srn_ss_level5 = F.relu(self.srn_ss_conv5(fpn_level4))    # explained in SRN article
         srn_ss_level6 = F.relu(self.srn_ss_conv6(srn_ss_level5)) # explained in SRN article
+
+        # computing head outputs
+        srn_fs = [srn_fs_level1, srn_fs_level2, srn_fs_level3, srn_fs_level4, srn_fs_level5, srn_fs_level6]
+        srn_ss = [srn_ss_level1, srn_ss_level2, srn_ss_level3, srn_ss_level4, srn_ss_level5, srn_ss_level6]
+
+        cls_head_fs_out = [self.cls_head(x) for x in srn_fs]
+        cls_head_ss_out = [self.cls_head(x) for x in srn_ss]
+
+        box_head_fs_out = [self.box_head(x) for x in srn_fs]
+        box_head_ss_out = [self.box_head(x) for x in srn_ss]
+
+        return cls_head_fs_out, box_head_fs_out, cls_head_ss_out, box_head_ss_out
+
 
