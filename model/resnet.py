@@ -1,12 +1,19 @@
 """
 Implementation of ResNet network family with
-intermediate layers returned in forward step.
+intermediate layers  output returned in forward
+step instead of class logits.
 """
 
 # ==================== [IMPORT] ====================
 
 import os
-from typing import Callable, Union, List
+
+from typing import (
+    Callable,
+    Union,
+    List,
+    Tuple,
+)
 
 import torch
 import torch.nn as nn
@@ -120,8 +127,6 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        self.avgpool = nn.AvgPool2d(7)
-        self.fc = nn.Linear(512 * block.expansion, 1000)
 
 
     def _make_layer(self, block, planes, blocks, stride=1):
@@ -141,7 +146,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
 
-    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor]:
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -152,10 +157,7 @@ class ResNet(nn.Module):
         layer3_out = self.layer3(layer2_out)
         layer4_out = self.layer4(layer3_out)
 
-        x = self.avgpool(layer4_out)
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
-        return x
+        return (layer1_out, layer2_out, layer3_out, layer4_out)
 
 
 # ===================== [UTILS] =====================
@@ -174,30 +176,30 @@ def load_weights(model_name: str):
 
 def resnet18_pretrained():
     model = ResNet(BasicBlock, [2, 2, 2, 2])
-    model.load_state_dict(load_weights('resnet18'))
+    model.load_state_dict(load_weights('resnet18'), strict=False)
     return model
 
 
 def resnet34_pretrained():
     model = ResNet(BasicBlock, [3, 4, 6, 3])
-    model.load_state_dict(load_weights('resnet34'))
+    model.load_state_dict(load_weights('resnet34'), strict=False)
     return model
 
 
 def resnet50_pretrained():
     model = ResNet(Bottleneck, [3, 4, 6, 3])
-    model.load_state_dict(load_weights('resnet50'))
+    model.load_state_dict(load_weights('resnet50'), strict=False)
     return model
 
 
 def resnet101_pretrained():
     model = ResNet(Bottleneck, [3, 4, 23, 3])
-    model.load_state_dict(load_weights('resnet101'))
+    model.load_state_dict(load_weights('resnet101'), strict=False)
     return model
 
 
 def resnet152_pretrained():
     model = ResNet(Bottleneck, [3, 8, 36, 3])
-    model.load_state_dict(load_weights('resnet152'))
+    model.load_state_dict(load_weights('resnet152'), strict=False)
     return model
 
