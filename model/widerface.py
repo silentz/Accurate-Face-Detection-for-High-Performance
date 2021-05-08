@@ -24,7 +24,8 @@ class WIDERFACEImage:
 
     def __init__(self, filename: typing.Union[str, bytes, os.PathLike],
                        bboxes: typing.List[typing.Dict] = [],
-                       lazy_load: bool = True):
+                       lazy_load: bool = True,
+                       pixels: np.ndarray = None):
         """
         Parameters
         ----------
@@ -45,6 +46,10 @@ class WIDERFACEImage:
                     ...                     # other info will not be used
                 }
 
+        pixels
+            It is the way to create a WIDERFACEImage object using
+            direct pixels assignment.
+
         lazy_load
             If `True`, load image only when its pixels are appealed.
             Otherwise, load image into RAM immediately.
@@ -52,9 +57,9 @@ class WIDERFACEImage:
 
         self.filename = filename
         self.bboxes = copy.deepcopy(bboxes)
-        self._pixels = None
+        self._pixels = copy.deepcopy(pixels)
 
-        if not lazy_load:
+        if (not lazy_load) and (self._pixels is None):
             self._pixels = self._load_image(self.filename)
 
 
@@ -84,6 +89,7 @@ class WIDERFACEImage:
             return np.copy(self._pixels)
 
         if format == 'pillow':
+            print(self._pixels)
             return Image.fromarray(np.uint8(self._pixels))
 
         raise ValueError(f"Unsupported image format: {format}")
