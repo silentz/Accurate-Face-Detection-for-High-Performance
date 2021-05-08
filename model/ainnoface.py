@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import torchvision
 import numpy as np
 from PIL import Image
 
@@ -96,9 +97,45 @@ class AInnoFace(nn.Module):
                 nn.Conv2d(self._channels, num_anchors * 4, kernel_size=1),
             )
 
+        # normalization transforms
+        self.normalize = torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(), # also normalizes from 0-255 to 0-1
+                torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+
 
     def _fpn_upsample(self, tensor: torch.Tensor) -> torch.Tensor:
         return F.interpolate(tensor, scale_factor=2, mode=self.interpolation_mode)
+
+
+    def _preprocess_images(self, images: Union[torch.Tensor, np.ndarray,
+                              List[Image.Image], List[WIDERFACEImage]]) -> torch.Tensor:
+        """
+        Convert input image format to torch tensor.
+        """
+        processed_images = []
+
+        for image in images:
+            if isinstance(image, Image.Image):
+                image = np.array(image, dtype=np.uint8)
+
+            elif isinstance(image, WIDERFACEImage):
+                image = image.pixels(format='numpy')
+
+            elif isinstance(image, np.ndarray):
+                pass
+
+            elif isinstance(image, torch.Tensor):
+                image = image.numpy().astype(np.uint8)
+
+            else:
+                raise ValueError('Wrong type of input image')
+
+            # normalize from 0-255 to 0-1 and convert to torch.Tensor
+            processed_images.append(self.normalize(image))
+
+        images = torch.vstack(processed_images)
+        return images
 
 
     def forward(self, images: Union[torch.Tensor, np.ndarray,
@@ -109,38 +146,14 @@ class AInnoFace(nn.Module):
         Parameters
         ----------
         images
-            Input images. Can be a batch of torch tensors,
-            batch of numpy tensors, list of PIL images or list of WIDERFACEImage's.
-            Each image is supposed to be a tensor of shape (H, W, 3), each
-            value in range 0-255.
+            Input images. Can be a batch of torch tensors of shape (B, H, W, 3),
+            batch of numpy tensors of shape (B, H, W, 3), list of PIL images or list
+            of WIDERFACEImage's. Each image is supposed to be a tensor of shape (H, W, 3),
+            each value is uint8 in range 0-255.
         """
 
-        # converting any possible type to torch tensor
-
-        if isinstance(images, np.ndarray):
-            images = torch.from_numpy(images, dtype=torch.float32)
-
-        if isinstance(images, List):
-            new_images = []
-
-            for image in images:
-                if isinstance(image, Image.Image):
-                    new_images.append(torch.from_numpy(np.array(image, dtype=np.float32)))
-                elif isinstance(image, WIDERFACEImage):
-                    new_images.append(image.pixels(format='torch'))
-                elif isinstance(image, np.ndarray):
-                    new_images.append(torch.from_numpy(image, dtype=torch.float32))
-                elif isinstance(image, torch.Tensor):
-                    new_images.append(image)
-                else:
-                    raise ValueError('Wrong type of input image')
-
-            images = torch.vstack(new_images)
-
-        if not isinstance(images, torch.Tensor):
-            raise ValueError('Invalid input format')
-
-        # TODO: normalize images
+        # converting any possible type to torch tensor and normalizing
+        images = self._preprocess_images(images)
 
         # extracting raw features
         raw_level1, raw_level2, raw_level3, raw_level4 = self.backbone(images)
@@ -180,5 +193,4 @@ class AInnoFace(nn.Module):
         box_head_ss_out = [self.box_head(x) for x in srn_ss]
 
         return cls_head_fs_out, box_head_fs_out, cls_head_ss_out, box_head_ss_out
-
 
