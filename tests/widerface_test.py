@@ -44,7 +44,7 @@ class TestWIDERFACEImage:
         image_path = './tests/test_dataset/mask.png'
         image = WIDERFACEImage(image_path, [], True)
         image_pixels = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
-        image_pixels = image_pixels.astype(np.float32)
+        image_pixels = image_pixels.astype(np.uint8)
 
         assert torch.allclose(image.pixels(format='torch'), torch.from_numpy(image_pixels))
         assert np.allclose(image.pixels(format='numpy'), image_pixels)
@@ -60,7 +60,7 @@ class TestWIDERFACEImage:
         image = WIDERFACEImage('./tests/test_dataset/mask.png', [bbox], True)
         image_pixels = cv2.imread('./tests/test_dataset/bbox_green_w1.png')
         image_pixels = cv2.cvtColor(image_pixels, cv2.COLOR_BGR2RGB)
-        image_pixels = image_pixels.astype(np.float32)
+        image_pixels = image_pixels.astype(np.uint8)
 
         assert torch.allclose(image.render(format='torch'), torch.from_numpy(image_pixels))
         assert np.allclose(image.render(format='numpy'), image_pixels)
@@ -71,7 +71,7 @@ class TestWIDERFACEImage:
         image = WIDERFACEImage('./tests/test_dataset/mask.png', [bbox], True)
         image_pixels = cv2.imread('./tests/test_dataset/bbox_red_w1.png')
         image_pixels = cv2.cvtColor(image_pixels, cv2.COLOR_BGR2RGB)
-        image_pixels = image_pixels.astype(np.float32)
+        image_pixels = image_pixels.astype(np.uint8)
 
         assert torch.allclose(image.render(format='torch'), torch.from_numpy(image_pixels))
         assert np.allclose(image.render(format='numpy'), image_pixels)
@@ -82,7 +82,7 @@ class TestWIDERFACEImage:
         image = WIDERFACEImage('./tests/test_dataset/mask.png', [bbox], True)
         image_pixels = cv2.imread('./tests/test_dataset/bbox_green_w2.png')
         image_pixels = cv2.cvtColor(image_pixels, cv2.COLOR_BGR2RGB)
-        image_pixels = image_pixels.astype(np.float32)
+        image_pixels = image_pixels.astype(np.uint8)
 
         assert torch.allclose(image.render(format='torch'), torch.from_numpy(image_pixels))
         assert np.allclose(image.render(format='numpy'), image_pixels)
@@ -99,7 +99,7 @@ class TestWIDERFACEImage:
 
         target_image = cv2.imread('./tests/test_dataset/bbox_green_w1.png')
         target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
-        target_image = target_image.astype(np.float32)
+        target_image = target_image.astype(np.uint8)
 
         assert np.allclose(image.render(format='numpy'), target_image)
 

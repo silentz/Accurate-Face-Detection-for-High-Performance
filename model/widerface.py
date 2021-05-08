@@ -119,10 +119,10 @@ class WIDERFACEImage:
             return image
 
         if format == 'torch':
-            return torch.from_numpy(np.array(image, dtype=np.float32))
+            return torch.from_numpy(np.array(image, dtype=np.uint8))
 
         if format == 'numpy':
-            return np.array(image, dtype=np.float32)
+            return np.array(image, dtype=np.uint8)
 
         raise ValueError(f"Unsupported image format: {format}")
 
@@ -145,7 +145,7 @@ class WIDERFACEImage:
         try:
             image_pixels = cv2.imread(filename)
             image_pixels = cv2.cvtColor(image_pixels, cv2.COLOR_BGR2RGB)
-            image_pixels = image_pixels.astype(np.float32)
+            image_pixels = image_pixels.astype(np.uint8)
             return image_pixels
         except:
             raise ValueError(f'Cannot load image: {filename}')
