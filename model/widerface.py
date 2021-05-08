@@ -89,7 +89,6 @@ class WIDERFACEImage:
             return np.copy(self._pixels)
 
         if format == 'pillow':
-            print(self._pixels)
             return Image.fromarray(np.uint8(self._pixels))
 
         raise ValueError(f"Unsupported image format: {format}")
@@ -283,6 +282,17 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
             except:
                 raise SyntaxError(f'Metafile format error: line {current_line+2} should be integer')
 
+            # BUGFIX: there are lines in widerface metafile like this:
+            # dir1/dir2/image.png
+            # 0
+            # 0 0 0 0 0 0 0 0 0 0
+            # ...
+            # next lines filter them out:
+            if bbox_count == 0:
+                if metafile_lines[current_line + 2] == '0 0 0 0 0 0 0 0 0 0':
+                    current_line += 3
+                    continue
+
             bbox_raw = metafile_lines[current_line + 2:current_line + 2 + bbox_count]
 
             try:
@@ -325,7 +335,10 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
         """
 
         if isinstance(index, int):
-            index = self._idx2key[index]
+            if index < 0:
+                index = self._idx2key[len(self) - index]
+            else:
+                index = self._idx2key[index]
 
         file_path = pathlib.Path(index)
         return self._images[file_path]
