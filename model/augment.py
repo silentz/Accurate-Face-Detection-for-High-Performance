@@ -67,7 +67,7 @@ class AugmentedWIDERFACEDataset(WIDERFACEDataset):
                 A.VerticalFlip(p=0.05),
                 A.HorizontalFlip(p=0.5),
                 A.Rotate(limit=(-10, 10), p=0.1),
-                A.RandomSizedCrop(min_max_height=(512, 1024), w2h_ratio=1, height=1024, width=1024, p=0.05),
+                A.RandomSizedCrop(min_max_height=(512, 1024), w2h_ratio=1, height=1024, width=1024, p=0.02),
                 A.PadIfNeeded(min_height=1024, min_width=1024, p=1),
                 A.CenterCrop(height=1024, width=1024, p=1),
                 A.Resize(height=1024, width=1024, p=1),
