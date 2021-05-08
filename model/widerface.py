@@ -336,7 +336,7 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
 
         if isinstance(index, int):
             if index < 0:
-                index = self._idx2key[len(self) - index]
+                index = self._idx2key[len(self) + index]
             else:
                 index = self._idx2key[index]
 
