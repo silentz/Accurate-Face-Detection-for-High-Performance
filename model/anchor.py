@@ -52,17 +52,17 @@ def generate_anchor_boxes(height: int,
     """
 
     # center coordinates of each anchor box
-    yc = np.arange(height) * downsampling_factor + downsampling_factor / 2
     xc = np.arange(width) * downsampling_factor + downsampling_factor / 2
+    yc = np.arange(height) * downsampling_factor + downsampling_factor / 2
 
     # aspect rations and scales
     ar = np.array(aspect_ratios)
     sc = np.array(scales)
 
     # all possible combinations
-    xc, yc, ar, sc = np.meshgrid(yc, xc, ar, sc)
-    yc = np.expand_dims(yc.ravel(), axis=1)
+    xc, yc, ar, sc = np.meshgrid(xc, yc, ar, sc)
     xc = np.expand_dims(xc.ravel(), axis=1)
+    yc = np.expand_dims(yc.ravel(), axis=1)
     ar = np.expand_dims(ar.ravel(), axis=1)
     sc = np.expand_dims(sc.ravel(), axis=1)
 
@@ -70,7 +70,7 @@ def generate_anchor_boxes(height: int,
     h = base_size * downsampling_factor * sc * np.sqrt(ar)
     w = base_size * downsampling_factor * sc / np.sqrt(ar)
 
-    result = np.hstack([xc, yc, h, w])
+    result = np.hstack([yc, xc, h, w])
     result = result.reshape(height, width, -1, 4)
     return torch.from_numpy(result)
 
