@@ -19,7 +19,7 @@ def generate_anchor_boxes(height: int,
                           downsampling_factor: float,
                           aspect_ratios: List[float] = [1.],
                           scales: List[float] = [1.],
-                          base_size: float = 2) -> torch.Tensor:
+                          base_size: float = 1) -> torch.Tensor:
     """
     Generate `height` x `width` grid of anchor boxes, with
     all possible combinations of `aspect_ratios` and `scales`.
@@ -38,7 +38,7 @@ def generate_anchor_boxes(height: int,
     scales
         List of all required scales for each anchor box of grid.
     base_size
-        Anchor box size with downsampling factor equal to 1.
+        Anchor box size with downsampling factor and scale equal to 1.
 
     Returns
     -------
@@ -67,8 +67,8 @@ def generate_anchor_boxes(height: int,
     sc = np.expand_dims(sc.ravel(), axis=1)
 
     # calculating width and height
-    w = downsampling_factor * sc / np.sqrt(ar)
-    h = downsampling_factor * sc * np.sqrt(ar)
+    w = base_size * downsampling_factor * sc / np.sqrt(ar)
+    h = base_size * downsampling_factor * sc * np.sqrt(ar)
 
     result = np.hstack([xc, yc, w, h])
     return torch.from_numpy(result)
