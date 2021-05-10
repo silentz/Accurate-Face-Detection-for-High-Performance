@@ -159,11 +159,26 @@ class AInnoFace(nn.Module):
 
     def _normalize_boxes(self, proposals: torch.Tensor, height: int, width: int) -> torch.Tensor:
         """
-        Convert boxes values to (x_up_left, y_up_left, w, h) and clip
+        Convert boxes values to (y_up_left, x_up_left, w, h) and clip
         their values to image height and width.
         """
-        # TODO
-        return proposals
+        y1 = torch.clamp(proposals[:, :, 0] - proposals[:, :, 2] / 2, 0, height)
+        x1 = torch.clamp(proposals[:, :, 1] - proposals[:, :, 3] / 2, 0, width)
+        y2 = torch.clamp(proposals[:, :, 0] + proposals[:, :, 2] / 2, 0, height)
+        x2 = torch.clamp(proposals[:, :, 1] + proposals[:, :, 3] / 2, 0, width)
+        p = proposals[:, :, 4]
+        return torch.stack([y1, x1, y2 - y1, x2 - x1, p], dim=2)
+
+
+    def _normalize_anchors(self, anchors: torch.Tensor) -> torch.Tensor:
+        """
+        Cast anchors to (y_up_left, x_up_left, height, width) format.
+        """
+        y1 = anchors[:, 0] - anchors[:, 2] / 2
+        x1 = anchors[:, 1] - anchors[:, 3] / 2
+        y2 = anchors[:, 0] + anchors[:, 2] / 2
+        x2 = anchors[:, 1] + anchors[:, 3] / 2
+        return torch.stack([y1, x1, y2 - y1, x2 - x1], dim=1)
 
 
     def forward(self, images: Union[torch.Tensor, np.ndarray,
@@ -248,13 +263,13 @@ class AInnoFace(nn.Module):
 
         for level in range(6):
             level_box_ss = box_head_ss[level].reshape(batch_size, -1, 4)
-            level_cls_ss = F.sigmoid(cls_head_ss[level].reshape(batch_size, -1, 1))
+            level_cls_ss = torch.sigmoid(cls_head_ss[level].reshape(batch_size, -1, 1))
             level_pred_ss = torch.cat([level_box_ss, level_cls_ss], dim=2)
             proposals_ss.append(level_pred_ss)
 
             if self._compute_fs:
                 level_box_fs = box_head_fs[level].reshape(batch_size, -1, 4)
-                level_cls_fs = F.sigmoid(cls_head_fs[level].reshape(batch_size, -1, 1))
+                level_cls_fs = torch.sigmoid(cls_head_fs[level].reshape(batch_size, -1, 1))
                 level_pred_fs = torch.cat([level_box_fs, level_cls_fs], dim=2)
                 proposals_fs.append(level_pred_fs)
 
@@ -265,10 +280,12 @@ class AInnoFace(nn.Module):
 
         # patching original anchor boxes with predictions of model
         proposals_ss = self._move_anchors(proposals_ss, anchor_all)
-        proposals_ss = self._normalize_boxes(proposals_ss)
+        proposals_ss = self._normalize_boxes(proposals_ss, im_height, im_width)
         if self._compute_fs:
             proposals_fs = self._move_anchors(proposals_fs, anchor_all)
-            proposals_fs = self._normalize_boxes(proposals_fs)
+            proposals_fs = self._normalize_boxes(proposals_fs, im_height, im_width)
+
+        anchor_all = self._normalize_anchors(anchor_all)
 
         if self._compute_fs:
             return proposals_fs, proposals_ss, anchor_all
