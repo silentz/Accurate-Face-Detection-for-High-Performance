@@ -44,32 +44,33 @@ def generate_anchor_boxes(height: int,
     -------
     torch.Tensor with following format: (C, H, W, 4), where C
     is amount of generated anchor boxes, H is grid height, W is grid width
-    and last 4 numbers are anchor box coordinates: (xc, yc, w, h).
-        xc - x coordinate of anchor box center.
+    and last 4 numbers are anchor box coordinates: (yc, xc, h, w).
         yc - y coordinate of anchor box center.
-        w - width of anchor box.
+        xc - x coordinate of anchor box center.
         h - height of anchor box.
+        w - width of anchor box.
     """
 
     # center coordinates of each anchor box
-    xc = np.arange(width) * downsampling_factor + downsampling_factor / 2
     yc = np.arange(height) * downsampling_factor + downsampling_factor / 2
+    xc = np.arange(width) * downsampling_factor + downsampling_factor / 2
 
     # aspect rations and scales
     ar = np.array(aspect_ratios)
     sc = np.array(scales)
 
     # all possible combinations
-    xc, yc, ar, sc = np.meshgrid(xc, yc, ar, sc)
-    xc = np.expand_dims(xc.ravel(), axis=1)
+    xc, yc, ar, sc = np.meshgrid(yc, xc, ar, sc)
     yc = np.expand_dims(yc.ravel(), axis=1)
+    xc = np.expand_dims(xc.ravel(), axis=1)
     ar = np.expand_dims(ar.ravel(), axis=1)
     sc = np.expand_dims(sc.ravel(), axis=1)
 
     # calculating width and height
-    w = base_size * downsampling_factor * sc / np.sqrt(ar)
     h = base_size * downsampling_factor * sc * np.sqrt(ar)
+    w = base_size * downsampling_factor * sc / np.sqrt(ar)
 
-    result = np.hstack([xc, yc, w, h])
+    result = np.hstack([xc, yc, h, w])
+    result = result.reshape(height, width, -1, 4)
     return torch.from_numpy(result)
 
