@@ -27,6 +27,7 @@ from .resnet import (
 
 from .widerface import WIDERFACEImage
 from .rfe import ReceptiveFieldEnrichment
+from .anchor import generate_anchor_boxes
 
 # ===================== [CODE] =====================
 
@@ -34,7 +35,8 @@ from .rfe import ReceptiveFieldEnrichment
 class AInnoFace(nn.Module):
 
     def __init__(self, num_anchors: int = 2,
-                       interpolation_mode: str = 'nearest'):
+                       interpolation_mode: str = 'nearest',
+                       compute_first_step: bool = True):
         """
         Parameters
         ----------
@@ -44,10 +46,14 @@ class AInnoFace(nn.Module):
         interpolation_mode
             Mode to use in feature pyramid network to upsample
             tensors from upper levels.
+        compute_first_step
+            Compute first step proposals or not (computing them
+            is not required in test mode).
         """
 
         super(AInnoFace, self).__init__()
         self.interpolation_mode = interpolation_mode
+        self._compute_fs = compute_first_step
         self._channels = 256
         self._backbone_channels = [256, 512, 1024, 2048]
 
@@ -134,8 +140,30 @@ class AInnoFace(nn.Module):
             # normalize from 0-255 to 0-1 and convert to torch.Tensor
             processed_images.append(self.normalize(image))
 
-        images = torch.vstack(processed_images)
+        images = torch.stack(processed_images)
         return images
+
+
+    def _move_anchors(self, proposals: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
+        """
+        Move anchor boxes the way model predicts.
+        """
+        result = torch.zeros_like(proposals)
+        result[:, :, 4] = proposals[:, :, 4] # saving probabilities as they are
+        result[:, :, 0] = proposals[:, :, 0] * anchors[:, 2] + anchors[:, 0]
+        result[:, :, 1] = proposals[:, :, 1] * anchors[:, 3] + anchors[:, 1]
+        result[:, :, 2] = torch.exp(proposals[:, :, 2]) * anchors[:, 2]
+        result[:, :, 3] = torch.exp(proposals[:, :, 3]) * anchors[:, 3]
+        return result
+
+
+    def _normalize_boxes(self, proposals: torch.Tensor, height: int, width: int) -> torch.Tensor:
+        """
+        Convert boxes values to (x_up_left, y_up_left, w, h) and clip
+        their values to image height and width.
+        """
+        # TODO
+        return proposals
 
 
     def forward(self, images: Union[torch.Tensor, np.ndarray,
@@ -154,11 +182,14 @@ class AInnoFace(nn.Module):
 
         # converting any possible type to torch tensor and normalizing
         images = self._preprocess_images(images)
+        batch_size, _, im_height, im_width = images.shape
 
         # extracting raw features
         raw_level1, raw_level2, raw_level3, raw_level4 = self.backbone(images)
-        raw_level5 = F.relu(self.raw_level5(raw_level4))
-        raw_level6 = F.relu(self.raw_level6(raw_level5))
+
+        if self._compute_fs:
+            raw_level5 = F.relu(self.raw_level5(raw_level4))
+            raw_level6 = F.relu(self.raw_level6(raw_level5))
 
         # computing fpn features
         fpn_level4 = F.relu(self.fpn_lateral4(raw_level4))
@@ -167,12 +198,13 @@ class AInnoFace(nn.Module):
         fpn_level1 = F.relu(self.fpn_lateral1(raw_level1)) + self._fpn_upsample(fpn_level2)
 
         # first stage of selective refinement network
-        srn_fs_level1 = F.relu(self.srn_fs_conv1(raw_level1))
-        srn_fs_level2 = F.relu(self.srn_fs_conv2(raw_level2))
-        srn_fs_level3 = F.relu(self.srn_fs_conv3(raw_level3))
-        srn_fs_level4 = F.relu(self.srn_fs_conv4(raw_level4))
-        srn_fs_level5 = F.relu(self.srn_fs_conv5(raw_level5))
-        srn_fs_level6 = F.relu(self.srn_fs_conv6(raw_level6))
+        if self._compute_fs:
+            srn_fs_level1 = F.relu(self.srn_fs_conv1(raw_level1))
+            srn_fs_level2 = F.relu(self.srn_fs_conv2(raw_level2))
+            srn_fs_level3 = F.relu(self.srn_fs_conv3(raw_level3))
+            srn_fs_level4 = F.relu(self.srn_fs_conv4(raw_level4))
+            srn_fs_level5 = F.relu(self.srn_fs_conv5(raw_level5))
+            srn_fs_level6 = F.relu(self.srn_fs_conv6(raw_level6))
 
         # second stage of selective refinement network
         srn_ss_level1 = F.relu(self.srn_ss_conv1(fpn_level1))
@@ -183,14 +215,63 @@ class AInnoFace(nn.Module):
         srn_ss_level6 = F.relu(self.srn_ss_conv6(srn_ss_level5)) # explained in SRN article
 
         # computing head outputs
-        srn_fs = [srn_fs_level1, srn_fs_level2, srn_fs_level3, srn_fs_level4, srn_fs_level5, srn_fs_level6]
+        if self._compute_fs:
+            srn_fs = [srn_fs_level1, srn_fs_level2, srn_fs_level3, srn_fs_level4, srn_fs_level5, srn_fs_level6]
+            cls_head_fs = [self.cls_head(x).permute(0, 2, 3, 1) for x in srn_fs]
+            box_head_fs = [self.box_head(x).permute(0, 2, 3, 1) for x in srn_fs]
+
         srn_ss = [srn_ss_level1, srn_ss_level2, srn_ss_level3, srn_ss_level4, srn_ss_level5, srn_ss_level6]
+        cls_head_ss = [self.cls_head(x).permute(0, 2, 3, 1) for x in srn_ss]
+        box_head_ss = [self.box_head(x).permute(0, 2, 3, 1) for x in srn_ss]
 
-        cls_head_fs_out = [self.cls_head(x) for x in srn_fs]
-        cls_head_ss_out = [self.cls_head(x) for x in srn_ss]
+        # computing anchor list for all levels
+        anchor_all = []
 
-        box_head_fs_out = [self.box_head(x) for x in srn_fs]
-        box_head_ss_out = [self.box_head(x) for x in srn_ss]
+        for level in range(6):
+            downsampling_factor = 2 ** (level + 1)
+            _, height, width, _ = box_head_ss[level].shape
 
-        return cls_head_fs_out, box_head_fs_out, cls_head_ss_out, box_head_ss_out
+            anchors = generate_anchor_boxes(height=height,
+                                            width=width,
+                                            downsampling_factor=downsampling_factor,
+                                            aspect_ratios=[1.25],
+                                            scales=[2, 2 * np.sqrt(2)],
+                                            base_size=2)
+
+            anchors = anchors.view(-1, 4)
+            anchor_all.append(anchors)
+
+        # computing proposals: each proposal has format (p, x, y, w, h)
+        # where p is probability to be foreground
+        proposals_fs = []
+        proposals_ss = []
+
+        for level in range(6):
+            level_box_ss = box_head_ss[level].reshape(batch_size, -1, 4)
+            level_cls_ss = F.sigmoid(cls_head_ss[level].reshape(batch_size, -1, 1))
+            level_pred_ss = torch.cat([level_box_ss, level_cls_ss], dim=2)
+            proposals_ss.append(level_pred_ss)
+
+            if self._compute_fs:
+                level_box_fs = box_head_fs[level].reshape(batch_size, -1, 4)
+                level_cls_fs = F.sigmoid(cls_head_fs[level].reshape(batch_size, -1, 1))
+                level_pred_fs = torch.cat([level_box_fs, level_cls_fs], dim=2)
+                proposals_fs.append(level_pred_fs)
+
+        anchor_all = torch.cat(anchor_all, dim=0)
+        proposals_ss = torch.cat(proposals_ss, dim=1)
+        if self._compute_fs:
+            proposals_fs = torch.cat(proposals_fs, dim=1)
+
+        # patching original anchor boxes with predictions of model
+        proposals_ss = self._move_anchors(proposals_ss, anchor_all)
+        proposals_ss = self._normalize_boxes(proposals_ss)
+        if self._compute_fs:
+            proposals_fs = self._move_anchors(proposals_fs, anchor_all)
+            proposals_fs = self._normalize_boxes(proposals_fs)
+
+        if self._compute_fs:
+            return proposals_fs, proposals_ss, anchor_all
+
+        return proposals_ss, anchor_all
 
