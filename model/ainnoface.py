@@ -144,7 +144,8 @@ class AInnoFace(nn.Module):
         return images
 
 
-    def _flatten_pred_box(self, pred: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def _flatten_pred_box(pred: torch.Tensor) -> torch.Tensor:
         """
         Flatten predictions of bbox head.
         """
@@ -152,7 +153,8 @@ class AInnoFace(nn.Module):
         return pred.reshape(batch_size, -1, 4)
 
 
-    def _flatten_pred_cls(self, pred: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def _flatten_pred_cls(pred: torch.Tensor) -> torch.Tensor:
         """
         Flatten predictions of cls head.
         """
@@ -160,7 +162,8 @@ class AInnoFace(nn.Module):
         return pred.reshape(batch_size, -1, 1)
 
 
-    def _flatten_anchors(self, anchors: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def _flatten_anchors(anchors: torch.Tensor) -> torch.Tensor:
         """
         Flatten anchor boxes coordinates.
         """
@@ -180,28 +183,28 @@ class AInnoFace(nn.Module):
         return result
 
 
-    def _normalize_boxes(self, proposals: torch.Tensor, height: int, width: int) -> torch.Tensor:
-        """
-        Convert boxes values to (y_up_left, x_up_left, w, h) and clip
-        their values to image height and width.
-        """
-        y1 = torch.clamp(proposals[:, :, 0] - proposals[:, :, 2] / 2, 0, height)
-        x1 = torch.clamp(proposals[:, :, 1] - proposals[:, :, 3] / 2, 0, width)
-        y2 = torch.clamp(proposals[:, :, 0] + proposals[:, :, 2] / 2, 0, height)
-        x2 = torch.clamp(proposals[:, :, 1] + proposals[:, :, 3] / 2, 0, width)
-        p = proposals[:, :, 4]
-        return torch.stack([y1, x1, y2 - y1, x2 - x1, p], dim=2)
+    #  def _normalize_boxes(self, proposals: torch.Tensor, height: int, width: int) -> torch.Tensor:
+    #      """
+    #      Convert boxes values to (y_up_left, x_up_left, w, h) and clip
+    #      their values to image height and width.
+    #      """
+    #      y1 = torch.clamp(proposals[:, :, 0] - proposals[:, :, 2] / 2, 0, height)
+    #      x1 = torch.clamp(proposals[:, :, 1] - proposals[:, :, 3] / 2, 0, width)
+    #      y2 = torch.clamp(proposals[:, :, 0] + proposals[:, :, 2] / 2, 0, height)
+    #      x2 = torch.clamp(proposals[:, :, 1] + proposals[:, :, 3] / 2, 0, width)
+    #      p = proposals[:, :, 4]
+    #      return torch.stack([y1, x1, y2 - y1, x2 - x1, p], dim=2)
 
 
-    def _normalize_anchors(self, anchors: torch.Tensor) -> torch.Tensor:
-        """
-        Cast anchors to (y_up_left, x_up_left, height, width) format.
-        """
-        y1 = anchors[:, 0] - anchors[:, 2] / 2
-        x1 = anchors[:, 1] - anchors[:, 3] / 2
-        y2 = anchors[:, 0] + anchors[:, 2] / 2
-        x2 = anchors[:, 1] + anchors[:, 3] / 2
-        return torch.stack([y1, x1, y2 - y1, x2 - x1], dim=1)
+    #  def _normalize_anchors(self, anchors: torch.Tensor) -> torch.Tensor:
+    #      """
+    #      Cast anchors to (y_up_left, x_up_left, height, width) format.
+    #      """
+    #      y1 = anchors[:, 0] - anchors[:, 2] / 2
+    #      x1 = anchors[:, 1] - anchors[:, 3] / 2
+    #      y2 = anchors[:, 0] + anchors[:, 2] / 2
+    #      x2 = anchors[:, 1] + anchors[:, 3] / 2
+    #      return torch.stack([y1, x1, y2 - y1, x2 - x1], dim=1)
 
 
     def forward(self, images: Union[torch.Tensor, np.ndarray,
@@ -280,12 +283,17 @@ class AInnoFace(nn.Module):
                                                   scales=[2, 2 * np.sqrt(2)],
                                                   base_size=2)
 
+            # shape anchors correctly
+            level_anchors = self._flatten_anchors(level_anchors)
+            anchors.append(level_anchors)
+
             # second stage proposals
             _, ss_channels, ss_height, ss_width = box_head_ss[level].shape
             assert level_anchors.shape == (ss_height, ss_width, ss_channels // 4, 4)
 
-            ss_level_box = self._flatten_pred_box(box_head_ss[level].permute(0, 2, 3, 1))
             ss_level_cls = self._flatten_pred_cls(cls_head_ss[level].permute(0, 2, 3, 1))
+            ss_level_box = self._flatten_pred_box(box_head_ss[level].permute(0, 2, 3, 1))
+            ss_level_box = self._move_anchors(level_anchors, ss_level_box)
             ss_level_pred = torch.cat([ss_level_box, ss_level_cls], dim=2)
             proposals_ss.append(ss_level_pred)
 
@@ -294,14 +302,13 @@ class AInnoFace(nn.Module):
                 _, fs_channels, fs_height, fs_width = box_head_fs[level].shape
                 assert level_anchors.shape == (fs_height, fs_width, fs_channels // 4, 4)
 
-                fs_level_box = self._flatten_pred_box(box_head_fs[level].permute(0, 2, 3, 1))
                 fs_level_cls = self._flatten_pred_cls(cls_head_fs[level].permute(0, 2, 3, 1))
+                fs_level_box = self._flatten_pred_box(box_head_fs[level].permute(0, 2, 3, 1))
+                fs_level_box = self._move_anchors(level_anchors, fs_level_box)
                 fs_level_pred = torch.cat([fs_level_box, fs_level_cls], dim=2)
                 proposals_fs.append(fs_level_pred)
 
-            # shape anchors correctly
-            level_anchors = self._flatten_anchors(level_anchors)
-            anchors.append(level_anchors)
+        # TODO: clip bboxes
 
         # concatinating tensors
         anchors = torch.cat(anchors, dim=0)
