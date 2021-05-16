@@ -175,11 +175,20 @@ class AInnoFace(nn.Module):
         Move anchor boxes the way model predicts.
         """
         result = torch.zeros_like(proposals)
-        result[:, :, 0] = proposals[:, :, 0] * anchors[:, 2] + anchors[:, 0] # prop_y * anch_h + anch_y
-        result[:, :, 1] = proposals[:, :, 1] * anchors[:, 3] + anchors[:, 1] # prop_x * anch_w + anch_x
-        result[:, :, 2] = torch.exp(proposals[:, :, 2]) * anchors[:, 2]      # exp(prop_h) * anch_h
-        result[:, :, 3] = torch.exp(proposals[:, :, 3]) * anchors[:, 3]      # exp(prop_w) * anch_w
+        result[..., 0] = proposals[..., 0] * anchors[:, 2] + anchors[:, 0] # prop_y * anch_h + anch_y
+        result[..., 1] = proposals[..., 1] * anchors[:, 3] + anchors[:, 1] # prop_x * anch_w + anch_x
+        result[..., 2] = torch.exp(proposals[..., 2]) * anchors[:, 2]      # exp(prop_h) * anch_h
+        result[..., 3] = torch.exp(proposals[..., 3]) * anchors[:, 3]      # exp(prop_w) * anch_w
         return result
+
+
+    def _normalize_boxes(self, boxes: torch.Tensor) -> torch.Tensor:
+        """
+        Convert (yc, xc, h, w) format to (y_up_left, x_up_left, w, h) format.
+        """
+        boxes[..., 0] -= boxes[..., 2] / 2
+        boxes[..., 1] -= boxes[..., 3] / 2
+        return boxes
 
 
     def forward(self, images: Union[torch.Tensor, np.ndarray,
@@ -273,7 +282,6 @@ class AInnoFace(nn.Module):
             # shape anchors correctly
             anchors_original_shape = level_anchors.shape
             level_anchors = self._flatten_anchors(level_anchors)
-            anchors.append(level_anchors)
 
             # second stage proposals
             _, ss_channels, ss_height, ss_width = box_head_ss[level].shape
@@ -282,6 +290,7 @@ class AInnoFace(nn.Module):
             ss_level_cls = self._flatten_pred_cls(cls_head_ss[level].permute(0, 2, 3, 1))
             ss_level_box = self._flatten_pred_box(box_head_ss[level].permute(0, 2, 3, 1))
             ss_level_box = self._move_anchors(level_anchors, ss_level_box)
+            ss_level_box = self._normalize_boxes(ss_level_box)
             ss_level_id = torch.full_like(ss_level_cls, fill_value=level + 1)
             ss_level_pred = torch.cat([ss_level_box, ss_level_cls, ss_level_id], dim=2)
             proposals_ss.append(ss_level_pred)
@@ -294,9 +303,14 @@ class AInnoFace(nn.Module):
                 fs_level_cls = self._flatten_pred_cls(cls_head_fs[level].permute(0, 2, 3, 1))
                 fs_level_box = self._flatten_pred_box(box_head_fs[level].permute(0, 2, 3, 1))
                 fs_level_box = self._move_anchors(level_anchors, fs_level_box)
+                fs_level_box = self._normalize_boxes(fs_level_box)
                 fs_level_id = torch.full_like(fs_level_cls, fill_value=level + 1)
                 fs_level_pred = torch.cat([fs_level_box, fs_level_cls, fs_level_id], dim=2)
                 proposals_fs.append(fs_level_pred)
+
+            # normalize anchors before append
+            level_anchors = self._normalize_boxes(level_anchors)
+            anchors.append(level_anchors)
 
         # concatinating tensors
         anchors = torch.cat(anchors, dim=0)
