@@ -194,6 +194,18 @@ class AInnoFace(nn.Module):
             batch of numpy tensors of shape (B, H, W, 3), list of PIL images or list
             of WIDERFACEImage's. Each image is supposed to be a tensor of shape (H, W, 3),
             each value is uint8 in range 0-255.
+
+        Returns
+        -------
+        Tuple of three values (fs_proposals: optional, ss_proposals, anchors)
+
+        fs_proposals and ss_proposals:
+            torch.Tensor of shape (batch_size, *, 6), each line contains
+            description of bounding box in format: (y, x, h, w, prob, level).
+
+        anchors:
+            torch.Tensor of shape (*, 4), each line contains description
+            of bounding box in format (y, x, h, w).
         """
 
         # converting any possible type to torch tensor and normalizing
