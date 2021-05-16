@@ -144,6 +144,29 @@ class AInnoFace(nn.Module):
         return images
 
 
+    def _flatten_pred_box(self, pred: torch.Tensor) -> torch.Tensor:
+        """
+        Flatten predictions of bbox head.
+        """
+        batch_size, _, _, _ = pred.shape
+        return pred.reshape(batch_size, -1, 4)
+
+
+    def _flatten_pred_cls(self, pred: torch.Tensor) -> torch.Tensor:
+        """
+        Flatten predictions of cls head.
+        """
+        batch_size, _, _, _ = pred.shape
+        return pred.reshape(batch_size, -1, 1)
+
+
+    def _flatten_anchors(self, anchors: torch.Tensor) -> torch.Tensor:
+        """
+        Flatten anchor boxes coordinates.
+        """
+        return anchors.view(-1, 4)
+
+
     def _move_anchors(self, proposals: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
         """
         Move anchor boxes the way model predicts.
@@ -232,64 +255,72 @@ class AInnoFace(nn.Module):
         # computing head outputs
         if self._compute_fs:
             srn_fs = [srn_fs_level1, srn_fs_level2, srn_fs_level3, srn_fs_level4, srn_fs_level5, srn_fs_level6]
-            cls_head_fs = [self.cls_head(x).permute(0, 2, 3, 1) for x in srn_fs]
-            box_head_fs = [self.box_head(x).permute(0, 2, 3, 1) for x in srn_fs]
+            cls_head_fs = [torch.sigmoid(self.cls_head(x)) for x in srn_fs]
+            box_head_fs = [self.box_head(x) for x in srn_fs]
 
         srn_ss = [srn_ss_level1, srn_ss_level2, srn_ss_level3, srn_ss_level4, srn_ss_level5, srn_ss_level6]
-        cls_head_ss = [self.cls_head(x).permute(0, 2, 3, 1) for x in srn_ss]
-        box_head_ss = [self.box_head(x).permute(0, 2, 3, 1) for x in srn_ss]
+        cls_head_ss = [torch.sigmoid(self.cls_head(x)) for x in srn_ss]
+        box_head_ss = [self.box_head(x) for x in srn_ss]
 
-        # computing anchor list for all levels
-        anchor_all = []
-
-        for level in range(6):
-            downsampling_factor = 2 ** (level + 1)
-            level_height = im_height // downsampling_factor
-            level_width = im_width // downsampling_factor
-
-            anchors = generate_anchor_boxes(height=level_height,
-                                            width=level_width,
-                                            downsampling_factor=downsampling_factor,
-                                            aspect_ratios=[1.25],
-                                            scales=[2, 2 * np.sqrt(2)],
-                                            base_size=2)
-
-            anchors = anchors.view(-1, 4)
-            anchor_all.append(anchors)
-
-        # computing proposals: each proposal has format (p, x, y, w, h)
-        # where p is probability to be foreground
+        # computing anchor list and proposals for
+        # first and second stages
+        anchors = []
         proposals_fs = []
         proposals_ss = []
 
         for level in range(6):
-            level_box_ss = box_head_ss[level].reshape(batch_size, -1, 4)
-            level_cls_ss = torch.sigmoid(cls_head_ss[level].reshape(batch_size, -1, 1))
-            level_pred_ss = torch.cat([level_box_ss, level_cls_ss], dim=2)
-            proposals_ss.append(level_pred_ss)
+            downsampling_factor = 2 ** (level + 2)
+            level_height = im_height // downsampling_factor
+            level_width = im_width // downsampling_factor
 
+            level_anchors = generate_anchor_boxes(height=level_height,
+                                                  width=level_width,
+                                                  downsampling_factor=downsampling_factor,
+                                                  aspect_ratios=[1.25],
+                                                  scales=[2, 2 * np.sqrt(2)],
+                                                  base_size=2)
+
+            # second stage proposals
+            _, ss_channels, ss_height, ss_width = box_head_ss[level].shape
+            assert level_anchors.shape == (ss_height, ss_width, ss_channels // 4, 4)
+
+            ss_level_box = self._flatten_pred_box(box_head_ss[level].permute(0, 2, 3, 1))
+            ss_level_cls = self._flatten_pred_cls(cls_head_ss[level].permute(0, 2, 3, 1))
+            ss_level_pred = torch.cat([ss_level_box, ss_level_cls], dim=2)
+            proposals_ss.append(ss_level_pred)
+
+            # first stage proposals
             if self._compute_fs:
-                level_box_fs = box_head_fs[level].reshape(batch_size, -1, 4)
-                level_cls_fs = torch.sigmoid(cls_head_fs[level].reshape(batch_size, -1, 1))
-                level_pred_fs = torch.cat([level_box_fs, level_cls_fs], dim=2)
-                proposals_fs.append(level_pred_fs)
+                _, fs_channels, fs_height, fs_width = box_head_fs[level].shape
+                assert level_anchors.shape == (fs_height, fs_width, fs_channels // 4, 4)
 
-        anchor_all = torch.cat(anchor_all, dim=0)
+                fs_level_box = self._flatten_pred_box(box_head_fs[level].permute(0, 2, 3, 1))
+                fs_level_cls = self._flatten_pred_cls(cls_head_fs[level].permute(0, 2, 3, 1))
+                fs_level_pred = torch.cat([fs_level_box, fs_level_cls], dim=2)
+                proposals_fs.append(fs_level_pred)
+
+            # shape anchors correctly
+            level_anchors = self._flatten_anchors(level_anchors)
+            anchors.append(level_anchors)
+
+        # concatinating tensors
+        anchors = torch.cat(anchors, dim=0)
         proposals_ss = torch.cat(proposals_ss, dim=1)
+
         if self._compute_fs:
             proposals_fs = torch.cat(proposals_fs, dim=1)
 
         # patching original anchor boxes with predictions of model
-        proposals_ss = self._move_anchors(proposals_ss, anchor_all)
-        proposals_ss = self._normalize_boxes(proposals_ss, im_height, im_width)
+        #  proposals_ss = self._move_anchors(proposals_ss, anchor_all)
+        #  proposals_ss = self._normalize_boxes(proposals_ss, im_height, im_width)
+        #  if self._compute_fs:
+        #      proposals_fs = self._move_anchors(proposals_fs, anchor_all)
+        #      proposals_fs = self._normalize_boxes(proposals_fs, im_height, im_width)
+
+        #  anchor_all = self._normalize_anchors(anchor_all)
+
         if self._compute_fs:
-            proposals_fs = self._move_anchors(proposals_fs, anchor_all)
-            proposals_fs = self._normalize_boxes(proposals_fs, im_height, im_width)
+            return proposals_fs, proposals_ss, anchors
 
-        anchor_all = self._normalize_anchors(anchor_all)
-
-        if self._compute_fs:
-            return proposals_fs, proposals_ss, anchor_all
-
-        return proposals_ss, anchor_all
+        return proposals_ss, anchors
 
