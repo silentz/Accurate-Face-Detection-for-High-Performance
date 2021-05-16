@@ -35,6 +35,7 @@ def generate_anchor_boxes(height: int,
         anchor box scale.
     aspect_ratios
         List of all required aspect ratios for each anchor box of grid.
+        (aspect ratio = height / width)
     scales
         List of all required scales for each anchor box of grid.
     base_size
@@ -42,14 +43,17 @@ def generate_anchor_boxes(height: int,
 
     Returns
     -------
-    torch.Tensor with following format: (C, H, W, 4), where C
-    is amount of generated anchor boxes, H is grid height, W is grid width
-    and last 4 numbers are anchor box coordinates: (yc, xc, h, w).
+    torch.Tensor with following format: (H, W, C, 4), where C
+    is amount of generated anchor boxes for each point, H is grid height,
+    W is grid width and last 4 numbers are anchor box coordinates: (yc, xc, h, w).
         yc - y coordinate of anchor box center.
         xc - x coordinate of anchor box center.
         h - height of anchor box.
         w - width of anchor box.
     """
+
+    if height <= 0 or width <= 0:
+        return torch.Tensor()
 
     # center coordinates of each anchor box
     xc = np.arange(width) * downsampling_factor + downsampling_factor / 2
@@ -72,5 +76,5 @@ def generate_anchor_boxes(height: int,
 
     result = np.hstack([yc, xc, h, w])
     result = result.reshape(height, width, -1, 4)
-    return torch.from_numpy(result)
+    return torch.from_numpy(result).type(torch.float32)
 
