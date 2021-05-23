@@ -31,7 +31,7 @@ class TrainModule(pl.LightningModule):
 
 
     def configure_optimizers(self):
-        pass
+        return torch.optim.SGD(self.ainnoface.parameters(), lr=0.001, momentum=0.9, weight_decay=0.0001)
 
 
     def training_step(self, batch, batch_idx):
@@ -40,6 +40,12 @@ class TrainModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         print(batch)
+
+
+
+def custom_collate_fn(data):
+    # separate function because pickle cannot use lambdas
+    return data
 
 
 
@@ -53,14 +59,16 @@ class WIDERFACEDatamodule(pl.LightningDataModule):
         dataset = AugmentedWIDERFACEDataset(
                 root='./data/WIDER_train/images/',
                 meta='./data/wider_face_split/wider_face_train_bbx_gt.txt')
-        return torch.utils.data.DataLoader(dataset=dataset, batch_size=2, num_workers=4)
+        return torch.utils.data.DataLoader(dataset=dataset, batch_size=2, num_workers=4,
+                collate_fn=custom_collate_fn)
 
 
     def val_dataloader(self):
-        dataset = WIDERFACEDataset(
+        dataset = AugmentedWIDERFACEDataset(
                 root='./data/WIDER_val/images/',
                 meta='./data/wider_face_split/wider_face_val_bbx_gt.txt')
-        return torch.utils.data.DataLoader(dataset=dataset, batch_size=2, num_workers=4)
+        return torch.utils.data.DataLoader(dataset=dataset, batch_size=2, num_workers=4,
+                collate_fn=custom_collate_fn)
 
 
 
