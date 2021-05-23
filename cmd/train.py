@@ -10,9 +10,10 @@ import torch.nn.functional as F
 
 import pytorch_lightning as pl
 
-from ..model.ainnoface import AInnoFace
-from ..model.widerface import WIDERFACEDataset
-from ..model.augment import AugmentedWIDERFACEDataset
+from model.loss import AInnoFaceLoss
+from model.ainnoface import AInnoFace
+from model.widerface import WIDERFACEDataset
+from model.augment import AugmentedWIDERFACEDataset
 
 # ===================== [CODE] =====================
 
@@ -20,8 +21,9 @@ from ..model.augment import AugmentedWIDERFACEDataset
 class TrainModule(pl.LightningModule):
 
     def __init__(self):
-        super(self, TrainModule).__init__()
+        super(TrainModule, self).__init__()
         self.ainnoface = AInnoFace()
+        self.loss = AInnoFaceLoss()
 
 
     def forward(self, batch):
@@ -33,26 +35,32 @@ class TrainModule(pl.LightningModule):
 
 
     def training_step(self, batch, batch_idx):
-        pass
+        print(batch)
 
 
     def validation_step(self, batch, batch_idx):
-        pass
+        print(batch)
 
 
 
 class WIDERFACEDatamodule(pl.LightningDataModule):
 
     def __init__(self):
-        super(self, WIDERFACEDatamodule).__init__()
+        super(WIDERFACEDatamodule, self).__init__()
 
 
     def train_dataloader(self):
-        pass
+        dataset = AugmentedWIDERFACEDataset(
+                root='./data/WIDER_train/images/',
+                meta='./data/wider_face_split/wider_face_train_bbx_gt.txt')
+        return torch.utils.data.DataLoader(dataset=dataset, batch_size=2, num_workers=4)
 
 
     def val_dataloader(self):
-        pass
+        dataset = WIDERFACEDataset(
+                root='./data/WIDER_val/images/',
+                meta='./data/wider_face_split/wider_face_val_bbx_gt.txt')
+        return torch.utils.data.DataLoader(dataset=dataset, batch_size=2, num_workers=4)
 
 
 

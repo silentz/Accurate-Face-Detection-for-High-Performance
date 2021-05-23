@@ -4,3 +4,8 @@ SHELL:=bash
 
 unittest:
 	pytest tests/
+
+
+train:
+	PYTHONPATH=. python cmd/train.py
+
