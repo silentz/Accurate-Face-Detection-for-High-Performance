@@ -188,6 +188,13 @@ class WIDERFACEImage:
             })
 
 
+    def torch_bboxes(self) -> torch.Tensor:
+        result = []
+        for bbox in self.bboxes:
+            result.append(torch.Tensor([bbox['y'], bbox['x'], bbox['h'], bbox['w']]))
+        return torch.stack(result, dim=0)
+
+
 
 class WIDERFACEDataset(torch.utils.data.Dataset):
     """

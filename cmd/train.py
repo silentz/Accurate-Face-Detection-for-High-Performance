@@ -26,20 +26,26 @@ class TrainModule(pl.LightningModule):
         self.loss = AInnoFaceLoss()
 
 
-    def forward(self, batch):
-        pass
-
-
     def configure_optimizers(self):
         return torch.optim.SGD(self.ainnoface.parameters(), lr=0.001, momentum=0.9, weight_decay=0.0001)
 
 
-    def training_step(self, batch, batch_idx):
-        print(batch)
+    def training_step(self, batch, *args, **kwargs):
+        images = [img.pixels(format='torch') for img in batch]
+        bboxes = [img.torch_bboxes() for img in batch]
+
+        fs, ss, anchors = self.ainnoface(images)
+        loss = self.loss(fs, ss, anchors, bboxes)
+        return loss
 
 
-    def validation_step(self, batch, batch_idx):
-        print(batch)
+    #  def validation_step(self, batch, *args, **kwargs):
+    #      images = [img.pixels(format='torch') for img in batch]
+    #      bboxes = [img.torch_bboxes() for img in batch]
+
+    #      fs, ss, anchors = self.ainnoface(images)
+    #      loss = self.loss(fs, ss, anchors, bboxes)
+    #      return loss
 
 
 
@@ -64,10 +70,10 @@ class WIDERFACEDatamodule(pl.LightningDataModule):
 
 
     def val_dataloader(self):
-        dataset = AugmentedWIDERFACEDataset(
+        dataset = WIDERFACEDataset(
                 root='./data/WIDER_val/images/',
                 meta='./data/wider_face_split/wider_face_val_bbx_gt.txt')
-        return torch.utils.data.DataLoader(dataset=dataset, batch_size=2, num_workers=4,
+        return torch.utils.data.DataLoader(dataset=dataset, batch_size=1, num_workers=4,
                 collate_fn=custom_collate_fn)
 
 
