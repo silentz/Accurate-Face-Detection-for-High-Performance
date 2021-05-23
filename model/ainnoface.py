@@ -254,11 +254,11 @@ class AInnoFace(nn.Module):
         # computing head outputs
         if self._compute_fs:
             srn_fs = [srn_fs_level1, srn_fs_level2, srn_fs_level3, srn_fs_level4, srn_fs_level5, srn_fs_level6]
-            cls_head_fs = [torch.sigmoid(self.cls_head(x)) for x in srn_fs]
+            cls_head_fs = [self.cls_head(x) for x in srn_fs]
             box_head_fs = [self.box_head(x) for x in srn_fs]
 
         srn_ss = [srn_ss_level1, srn_ss_level2, srn_ss_level3, srn_ss_level4, srn_ss_level5, srn_ss_level6]
-        cls_head_ss = [torch.sigmoid(self.cls_head(x)) for x in srn_ss]
+        cls_head_ss = [self.cls_head(x) for x in srn_ss]
         box_head_ss = [self.box_head(x) for x in srn_ss]
 
         # computing anchor list and proposals for
