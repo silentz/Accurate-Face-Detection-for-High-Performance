@@ -5,6 +5,8 @@ Train loop for AInnoFace model.
 # ==================== [IMPORT] ====================
 
 import os
+import warnings
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,6 +17,8 @@ from model.loss import AInnoFaceLoss
 from model.ainnoface import AInnoFace
 from model.widerface import WIDERFACEDataset, WIDERFACEImage
 from model.augment import AugmentedWIDERFACEDataset
+
+warnings.filterwarnings('ignore')
 
 # ===================== [CODE] =====================
 
@@ -41,9 +45,11 @@ class TrainModule(pl.LightningModule):
         if self._compute_fs:
             fs, ss, anchors = self.ainnoface(images, device=self._device_ident.device)
             loss = self.loss(fs_proposal=fs, ss_proposal=ss, anchors=anchors, ground_truth=bboxes)
+            self.logger.experiment.log_metric('train_loss', loss.item())
         else:
             ss, anchors = self.ainnoface(images, device=self._device_ident.device)
             loss = self.loss(ss_proposal=ss, anchors=anchors, ground_truth=bboxes)
+            self.logger.experiment.log_metric('train_loss', loss.item())
 
         return loss
 
@@ -116,9 +122,11 @@ def run_train_loop():
         )
 
     trainer = pl.Trainer(
-            gpus=1,
+            gpus=2,
             accumulate_grad_batches=2,
             logger=neptune_logger,
+            val_check_interval=100,
+            limit_val_batches=2,
             max_epochs=10,
             precision=32,
         )
