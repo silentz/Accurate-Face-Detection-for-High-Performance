@@ -33,8 +33,9 @@ class TrainModule(pl.LightningModule):
     def training_step(self, batch, *args, **kwargs):
         images = [img.pixels(format='torch') for img in batch]
         bboxes = [img.torch_bboxes() for img in batch]
+        bboxes = [img.to(self.device) for img in bboxes]
 
-        fs, ss, anchors = self.ainnoface(images)
+        fs, ss, anchors = self.ainnoface(images, device=self.device)
         loss = self.loss(fs, ss, anchors, bboxes)
         return loss
 
@@ -84,7 +85,7 @@ def run_train_loop():
     datamodule = WIDERFACEDatamodule()
 
     trainer = pl.Trainer(
-            gpus=0,
+            gpus=1,
             accumulate_grad_batches=1,
             max_epochs=10,
             precision=32,

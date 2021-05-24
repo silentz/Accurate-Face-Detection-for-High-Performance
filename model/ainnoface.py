@@ -34,12 +34,16 @@ from .anchor import generate_anchor_boxes
 
 class AInnoFace(nn.Module):
 
-    def __init__(self, num_anchors: int = 2,
+    def __init__(self, backbone: str = 'resnet18',
+                       num_anchors: int = 2,
                        interpolation_mode: str = 'nearest',
                        compute_first_step: bool = True):
         """
         Parameters
         ----------
+        backbone
+            Backbone network. One of 'resnet18', 'resnet32',
+            'resnet50', 'resnet101', 'resnet152'.
         num_anchors
             Number of anchor boxes shift predictions to return.
             (Each prediction is tuple of 4 real numbers).
@@ -54,16 +58,35 @@ class AInnoFace(nn.Module):
         super(AInnoFace, self).__init__()
         self.interpolation_mode = interpolation_mode
         self._compute_fs = compute_first_step
-        self._channels = 256
-        self._backbone_channels = [256, 512, 1024, 2048]
 
-        # bottom-up path layers
-        self.backbone = resnet152_pretrained()
+        # configuring backbone
+        if backbone == 'resnet152':
+            self._channels = 256
+            self._backbone_channels = [256, 512, 1024, 2048]
+            self.backbone = resnet152_pretrained()
+        elif backbone == 'resnet101':
+            self._channels = 256
+            self._backbone_channels = [256, 512, 1024, 2048]
+            self.backbone = resnet101_pretrained()
+        elif backbone == 'resnet50':
+            self._channels = 256
+            self._backbone_channels = [256, 512, 1024, 2048]
+            self.backbone = resnet50_pretrained()
+        elif backbone == 'resnet34':
+            self._channels = 128
+            self._backbone_channels = [64, 128, 256, 512]
+            self.backbone = resnet34_pretrained()
+        elif backbone == 'resnet18':
+            self._channels = 128
+            self._backbone_channels = [64, 128, 256, 512]
+            self.backbone = resnet18_pretrained()
+
         self.backbone.eval()
 
         for parameter in self.backbone.parameters():
             parameter.requires_grad = False
 
+        # other bottom-up path layers
         self.raw_level5 = nn.Conv2d(self._backbone_channels[3], self._backbone_channels[3] // 2,
                                         kernel_size=3, stride=2, padding=1)
         self.raw_level6 = nn.Conv2d(self._backbone_channels[3] // 2, self._channels,
@@ -186,13 +209,15 @@ class AInnoFace(nn.Module):
         """
         Convert (yc, xc, h, w) format to (y_up_left, x_up_left, w, h) format.
         """
-        boxes[..., 0] -= boxes[..., 2] / 2
-        boxes[..., 1] -= boxes[..., 3] / 2
-        return boxes
+        result = boxes.clone()
+        result[..., 0] -= boxes[..., 2] / 2
+        result[..., 1] -= boxes[..., 3] / 2
+        return result
 
 
     def forward(self, images: Union[torch.Tensor, np.ndarray,
-                              List[Image.Image], List[WIDERFACEImage]]) -> torch.Tensor:
+                              List[Image.Image], List[WIDERFACEImage]],
+                      device: torch.device = 'cpu') -> torch.Tensor:
         """
         Make forward pass of AInnoFace model.
 
@@ -219,6 +244,7 @@ class AInnoFace(nn.Module):
 
         # converting any possible type to torch tensor and normalizing
         images = self._preprocess_images(images)
+        images = images.to(device)
         batch_size, _, im_height, im_width = images.shape
 
         # extracting raw features
@@ -278,6 +304,7 @@ class AInnoFace(nn.Module):
                                                   aspect_ratios=[1.25],
                                                   scales=[2, 2 * np.sqrt(2)],
                                                   base_size=2)
+            level_anchors = level_anchors.to(device)
 
             # shape anchors correctly
             anchors_original_shape = level_anchors.shape
