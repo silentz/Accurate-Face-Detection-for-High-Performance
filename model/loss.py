@@ -80,7 +80,7 @@ class AInnoFaceLoss(nn.Module):
             iou = torchvision.ops.boxes.box_iou(
                     torch.unsqueeze(box1, 0),
                     torch.unsqueeze(box2, 0))
-            loss += - torch.log(iou[0][0])
+            loss += - torch.log(iou[0][0] + 1e-6)
             count += 1
 
         if count == 0:

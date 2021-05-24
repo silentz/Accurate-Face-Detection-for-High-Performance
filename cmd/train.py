@@ -22,7 +22,7 @@ class TrainModule(pl.LightningModule):
 
     def __init__(self):
         super(TrainModule, self).__init__()
-        self.ainnoface = AInnoFace()
+        self.ainnoface = AInnoFace(backbone='resnet18')
         self.loss = AInnoFaceLoss()
 
 
@@ -66,7 +66,7 @@ class WIDERFACEDatamodule(pl.LightningDataModule):
         dataset = AugmentedWIDERFACEDataset(
                 root='./data/WIDER_train/images/',
                 meta='./data/wider_face_split/wider_face_train_bbx_gt.txt')
-        return torch.utils.data.DataLoader(dataset=dataset, batch_size=2, num_workers=4,
+        return torch.utils.data.DataLoader(dataset=dataset, batch_size=6, num_workers=4,
                 collate_fn=custom_collate_fn)
 
 
@@ -85,10 +85,10 @@ def run_train_loop():
     datamodule = WIDERFACEDatamodule()
 
     trainer = pl.Trainer(
-            gpus=1,
+            gpus=2,
             accumulate_grad_batches=1,
             max_epochs=10,
-            precision=32,
+            precision=16,
         )
 
     trainer.fit(model=model, datamodule=datamodule)
