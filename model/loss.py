@@ -96,10 +96,10 @@ class AInnoFaceLoss(nn.Module):
         return loss
 
 
-    def forward(self, fs_proposal: torch.Tensor,
-                      ss_proposal: torch.Tensor,
+    def forward(self, ss_proposal: torch.Tensor,
                       anchors: torch.Tensor,
-                      ground_truth: List[torch.Tensor]) -> torch.Tensor:
+                      ground_truth: List[torch.Tensor],
+                      fs_proposal: torch.Tensor = None) -> torch.Tensor:
         """
         Parameters
         ----------
@@ -118,31 +118,39 @@ class AInnoFaceLoss(nn.Module):
         # flatten structure
         target_boxes = target_boxes.view(-1, 4)
         target_scores = target_scores.view(-1)
-        fs_proposal = fs_proposal.reshape(-1, 6)
         ss_proposal = ss_proposal.reshape(-1, 6)
+
+        if self.two_step:
+            fs_proposal = fs_proposal.reshape(-1, 6)
 
         # calulating stage ids
         ss_pos = (target_scores >= self.ss_high_threshold)
         ss_neg = (target_scores <= self.ss_low_threshold)
-
-        fs_pos = (target_scores >= self.fs_high_threshold)
-        fs_neg = (target_scores <= self.fs_low_threshold)
-
         ss_pos_count = ss_pos.sum().item()
-        fs_pos_count = fs_pos.sum().item()
-
         if ss_pos_count < 1e-1: ss_pos_count = 1
-        if fs_pos_count < 1e-1: fs_pos_count = 1
+
+        if self.two_step:
+            fs_pos = (target_scores >= self.fs_high_threshold)
+            fs_neg = (target_scores <= self.fs_low_threshold)
+            fs_pos_count = fs_pos.sum().item()
+            if fs_pos_count < 1e-1: fs_pos_count = 1
 
         # stc loss
         ss_stc_loss = torchvision.ops.sigmoid_focal_loss(
                         ss_proposal[:, 4], target_scores, reduction='mean') / ss_pos_count
-        fs_stc_loss = torchvision.ops.sigmoid_focal_loss(
+
+        if self.two_step:
+            fs_stc_loss = torchvision.ops.sigmoid_focal_loss(
                         fs_proposal[:, 4], target_scores, reduction='mean') / fs_pos_count
 
         # str loss
         ss_str_loss = self.iou_loss(ss_proposal[ss_pos][:, 0:4], target_boxes[ss_pos]) / ss_pos_count
-        fs_str_loss = self.iou_loss(fs_proposal[fs_pos][:, 0:4], target_boxes[fs_pos]) / fs_pos_count
 
-        return ss_stc_loss + fs_stc_loss + ss_str_loss + fs_str_loss
+        if self.two_step:
+            fs_str_loss = self.iou_loss(fs_proposal[fs_pos][:, 0:4], target_boxes[fs_pos]) / fs_pos_count
+
+        if self.two_step:
+            return ss_stc_loss + fs_stc_loss + ss_str_loss + fs_str_loss
+
+        return ss_stc_loss + ss_str_loss
 

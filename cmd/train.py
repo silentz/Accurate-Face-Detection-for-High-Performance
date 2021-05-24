@@ -22,8 +22,10 @@ class TrainModule(pl.LightningModule):
 
     def __init__(self):
         super(TrainModule, self).__init__()
-        self.ainnoface = AInnoFace(backbone='resnet18')
-        self.loss = AInnoFaceLoss()
+        self._compute_fs = False
+        self._device_ident = nn.Parameter(torch.empty(0))
+        self.ainnoface = AInnoFace(backbone='resnet18', compute_first_step=self._compute_fs)
+        self.loss = AInnoFaceLoss(two_step=self._compute_fs)
 
 
     def configure_optimizers(self):
@@ -33,10 +35,15 @@ class TrainModule(pl.LightningModule):
     def training_step(self, batch, *args, **kwargs):
         images = [img.pixels(format='torch') for img in batch]
         bboxes = [img.torch_bboxes() for img in batch]
-        bboxes = [img.to(self.device) for img in bboxes]
+        bboxes = [img.to(self._device_ident.device) for img in bboxes]
 
-        fs, ss, anchors = self.ainnoface(images, device=self.device)
-        loss = self.loss(fs, ss, anchors, bboxes)
+        if self._compute_fs:
+            fs, ss, anchors = self.ainnoface(images, device=self._device_ident.device)
+            loss = self.loss(fs_proposal=fs, ss_proposal=ss, anchors=anchors, ground_truth=bboxes)
+        else:
+            ss, anchors = self.ainnoface(images, device=self._device_ident.device)
+            loss = self.loss(ss_proposal=ss, anchors=anchors, ground_truth=bboxes)
+
         return loss
 
 
@@ -66,16 +73,16 @@ class WIDERFACEDatamodule(pl.LightningDataModule):
         dataset = AugmentedWIDERFACEDataset(
                 root='./data/WIDER_train/images/',
                 meta='./data/wider_face_split/wider_face_train_bbx_gt.txt')
-        return torch.utils.data.DataLoader(dataset=dataset, batch_size=6, num_workers=4,
+        return torch.utils.data.DataLoader(dataset=dataset, batch_size=16, num_workers=1,
                 collate_fn=custom_collate_fn)
 
 
-    def val_dataloader(self):
-        dataset = WIDERFACEDataset(
-                root='./data/WIDER_val/images/',
-                meta='./data/wider_face_split/wider_face_val_bbx_gt.txt')
-        return torch.utils.data.DataLoader(dataset=dataset, batch_size=1, num_workers=4,
-                collate_fn=custom_collate_fn)
+    #  def val_dataloader(self):
+    #      dataset = WIDERFACEDataset(
+    #              root='./data/WIDER_val/images/',
+    #              meta='./data/wider_face_split/wider_face_val_bbx_gt.txt')
+    #      return torch.utils.data.DataLoader(dataset=dataset, batch_size=1, num_workers=1,
+    #              collate_fn=custom_collate_fn)
 
 
 
@@ -85,10 +92,10 @@ def run_train_loop():
     datamodule = WIDERFACEDatamodule()
 
     trainer = pl.Trainer(
-            gpus=2,
-            accumulate_grad_batches=1,
+            gpus=1,
+            accumulate_grad_batches=2,
             max_epochs=10,
-            precision=16,
+            precision=32,
         )
 
     trainer.fit(model=model, datamodule=datamodule)
