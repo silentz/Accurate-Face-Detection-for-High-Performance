@@ -4,11 +4,13 @@ WIDERFACE dataset implementation with augmentations.
 
 # ==================== [IMPORT] ====================
 
+import cv2
 import torch
 import numpy as np
 import albumentations as A
 
 import os
+import copy
 import typing
 from .widerface import WIDERFACEDataset, WIDERFACEImage
 
@@ -64,13 +66,13 @@ class AugmentedWIDERFACEDataset(WIDERFACEDataset):
             ])
 
         self.space_distortions = A.Compose([
-                A.VerticalFlip(p=0.05),
+                #  A.VerticalFlip(p=0.05),
                 A.HorizontalFlip(p=0.5),
                 A.Rotate(limit=(-10, 10), p=0.1),
-                A.PadIfNeeded(min_height=1024, min_width=1024, p=1),
+                A.PadIfNeeded(min_height=1024, min_width=1024, p=1, border_mode=cv2.BORDER_CONSTANT),
                 A.CenterCrop(height=1024, width=1024, p=1),
-                A.Resize(height=1024, width=1024, p=1),
-            ], bbox_params=A.BboxParams(format='coco', min_visibility=0.5, label_fields=[]))
+                A.Resize(height=512, width=512, p=1),
+            ], bbox_params=A.BboxParams(format='coco', min_area=16, label_fields=[]))
 
 
     def __getitem__(self, index: typing.Union[int, str, bytes, os.PathLike]) -> WIDERFACEImage:
@@ -87,5 +89,5 @@ class AugmentedWIDERFACEDataset(WIDERFACEDataset):
         pixels = result['image']
         bboxes = [{'x': r[0], 'y': r[1], 'w': r[2], 'h': r[3]} for r in result['bboxes']]
 
-        return WIDERFACEImage(filename=image.filename, bboxes=bboxes, pixels=pixels)
+        return WIDERFACEImage(filename=image.filename, bboxes=copy.deepcopy(bboxes), pixels=pixels)
 
