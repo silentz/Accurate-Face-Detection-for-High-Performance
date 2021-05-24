@@ -55,6 +55,13 @@ class AInnoFaceLoss(nn.Module):
         target_iou_scores = []
 
         for image_id in range(batch_size):
+            if len(ground_truth[image_id]) <= 0:
+                zeros = torch.zeros(corner_anchors.shape[0])
+                zeros = zeros.to(corner_anchors.device)
+                target_boxes.append(corner_anchors)
+                target_iou_scores.append(zeros)
+                continue
+
             image_gt_boxes = torchvision.ops.box_convert(ground_truth[image_id], in_fmt='xywh', out_fmt='xyxy')
             iou_scores = torchvision.ops.box_iou(corner_anchors, image_gt_boxes)
             boxes_with_max_iou = torch.argmax(iou_scores, dim=1)
