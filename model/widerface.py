@@ -316,7 +316,8 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
                         raise SyntaxError(f'Metafile syntax error: line {current_line+3+bbox_id}' \
                                 ' should contain at least 4 integers')
 
-                    bbox_clean.append(bbox)
+                    if bbox['w'] > 0 and bbox['h'] > 0:
+                        bbox_clean.append(bbox)
             except SyntaxError as err:
                 raise err
             except:
