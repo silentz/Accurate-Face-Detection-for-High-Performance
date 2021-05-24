@@ -6,3 +6,5 @@ data/
 .DS_Store
 weights/*.pth
 lightning_logs/
+.env
+Neptune/

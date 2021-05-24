@@ -4,6 +4,7 @@ Train loop for AInnoFace model.
 
 # ==================== [IMPORT] ====================
 
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,7 +13,7 @@ import pytorch_lightning as pl
 
 from model.loss import AInnoFaceLoss
 from model.ainnoface import AInnoFace
-from model.widerface import WIDERFACEDataset
+from model.widerface import WIDERFACEDataset, WIDERFACEImage
 from model.augment import AugmentedWIDERFACEDataset
 
 # ===================== [CODE] =====================
@@ -47,13 +48,29 @@ class TrainModule(pl.LightningModule):
         return loss
 
 
-    #  def validation_step(self, batch, *args, **kwargs):
-    #      images = [img.pixels(format='torch') for img in batch]
-    #      bboxes = [img.torch_bboxes() for img in batch]
+    def validation_step(self, batch, *args, **kwargs):
+        images = [img.pixels(format='torch') for img in batch]
+        bboxes = [img.torch_bboxes() for img in batch]
+        bboxes = [img.to(self._device_ident.device) for img in bboxes]
 
-    #      fs, ss, anchors = self.ainnoface(images)
-    #      loss = self.loss(fs, ss, anchors, bboxes)
-    #      return loss
+        if self._compute_fs:
+            fs, ss, anchors = self.ainnoface(images, device=self._device_ident.device)
+            loss = self.loss(fs_proposal=fs, ss_proposal=ss, anchors=anchors, ground_truth=bboxes)
+        else:
+            ss, anchors = self.ainnoface(images, device=self._device_ident.device)
+            loss = self.loss(ss_proposal=ss, anchors=anchors, ground_truth=bboxes)
+
+        result_images = []
+        for idx, image in enumerate(batch):
+            new_image = WIDERFACEImage(pixels=image.pixels(format='numpy'), filename='')
+            image_proposals = ss[idx]
+            bboxes = image_proposals[torch.sigmoid(image_proposals[:, 4]) >= 0.5][:, 0:4]
+            for bbox in bboxes:
+                new_image.add_bbox(x=bbox[1], y=bbox[0], w=bbox[3], h=bbox[2])
+            rendered = new_image.render(format='pillow')
+            self.logger.experiment.log_image('model_out', rendered)
+
+        return loss
 
 
 
@@ -77,12 +94,12 @@ class WIDERFACEDatamodule(pl.LightningDataModule):
                 collate_fn=custom_collate_fn)
 
 
-    #  def val_dataloader(self):
-    #      dataset = WIDERFACEDataset(
-    #              root='./data/WIDER_val/images/',
-    #              meta='./data/wider_face_split/wider_face_val_bbx_gt.txt')
-    #      return torch.utils.data.DataLoader(dataset=dataset, batch_size=1, num_workers=1,
-    #              collate_fn=custom_collate_fn)
+    def val_dataloader(self):
+        dataset = AugmentedWIDERFACEDataset(
+                root='./data/WIDER_val/images/',
+                meta='./data/wider_face_split/wider_face_val_bbx_gt.txt')
+        return torch.utils.data.DataLoader(dataset=dataset, batch_size=1, num_workers=1,
+                collate_fn=custom_collate_fn)
 
 
 
@@ -91,9 +108,17 @@ def run_train_loop():
     model = TrainModule()
     datamodule = WIDERFACEDatamodule()
 
+    neptune_logger = pl.loggers.NeptuneLogger(
+            api_key=os.environ['NEPTUNE_API_TOKEN'],
+            project_name="silentz/AInnoFace",
+            experiment_name='Neptune',
+            params=dict(),
+        )
+
     trainer = pl.Trainer(
             gpus=1,
             accumulate_grad_batches=2,
+            logger=neptune_logger,
             max_epochs=10,
             precision=32,
         )
