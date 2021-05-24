@@ -190,8 +190,13 @@ class WIDERFACEImage:
 
     def torch_bboxes(self) -> torch.Tensor:
         result = []
+
         for bbox in self.bboxes:
             result.append(torch.Tensor([bbox['y'], bbox['x'], bbox['h'], bbox['w']]))
+
+        if len(result) == 0:
+            return torch.Tensor([])
+
         return torch.stack(result, dim=0)
 
 
