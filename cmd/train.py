@@ -34,7 +34,23 @@ class TrainModule(pl.LightningModule):
 
 
     def configure_optimizers(self):
-        return torch.optim.SGD(self.ainnoface.parameters(), lr=0.001, momentum=0.9, weight_decay=0.0001)
+        #  return torch.optim.Adam(self.ainnoface.parameters())
+        optimizer = torch.optim.SGD(params=self.ainnoface.parameters(),
+                                    lr=0.0003125,
+                                    momentum=0.9,
+                                    weight_decay=0.0001)
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                    optimizer=optimizer,
+                    max_lr=0.01,
+                    epochs=self.trainer.max_epochs,
+                    steps_per_epoch=403,
+                    anneal_strategy='cos',
+                    pct_start=0.03,
+                    div_factor=32)
+        return {
+                'optimizer': optimizer,
+                'lr_scheduler': lr_scheduler,
+            }
 
 
     def training_step(self, batch, *args, **kwargs):
@@ -125,9 +141,9 @@ def run_train_loop():
             gpus=2,
             accumulate_grad_batches=2,
             logger=neptune_logger,
-            val_check_interval=100,
+            #  val_check_interval=100,
             limit_val_batches=2,
-            max_epochs=10,
+            max_epochs=100,
             precision=32,
         )
 
