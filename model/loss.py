@@ -137,11 +137,11 @@ class AInnoFaceLoss(nn.Module):
 
         # stc loss
         ss_stc_loss = torchvision.ops.sigmoid_focal_loss(
-                        ss_proposal[:, 4], target_scores, reduction='mean') / ss_pos_count
+                        ss_proposal[:, 4], target_scores, alpha=0.25, gamma=2, reduction='mean') / ss_pos_count
 
         if self.two_step:
             fs_stc_loss = torchvision.ops.sigmoid_focal_loss(
-                        fs_proposal[:, 4], target_scores, reduction='mean') / fs_pos_count
+                        fs_proposal[:, 4], target_scores, alpha=0.25, gamma=2, reduction='mean') / fs_pos_count
 
         # str loss
         ss_str_loss = self.iou_loss(ss_proposal[ss_pos][:, 0:4], target_boxes[ss_pos]) / ss_pos_count
