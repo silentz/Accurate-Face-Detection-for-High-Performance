@@ -77,7 +77,7 @@ class AInnoFace(nn.Module):
             self._backbone_channels = [64, 128, 256, 512]
             self.backbone = resnet34_pretrained()
         elif backbone == 'resnet18':
-            self._channels = 128
+            self._channels = 64
             self._backbone_channels = [64, 128, 256, 512]
             self.backbone = resnet18_pretrained()
 
