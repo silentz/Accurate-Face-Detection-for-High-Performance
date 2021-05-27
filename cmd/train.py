@@ -90,7 +90,7 @@ class TrainModule(pl.LightningModule):
             for bbox in bboxes:
                 new_image.add_bbox(x=bbox[1], y=bbox[0], w=bbox[3], h=bbox[2])
             rendered = new_image.render(format='pillow')
-            self.logger.experiment.log_image('model_out', rendered)
+            self.logger.experiment.log_image('model_out', rendered, description=str(len(bboxes)))
 
         return loss
 
