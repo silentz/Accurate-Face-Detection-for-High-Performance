@@ -198,16 +198,16 @@ class AInnoFace(nn.Module):
         Move anchor boxes the way model predicts.
         """
         result = torch.zeros_like(proposals)
-        result[..., 0] = proposals[..., 0] * anchors[:, 2] + anchors[:, 0] # prop_y * anch_h + anch_y
-        result[..., 1] = proposals[..., 1] * anchors[:, 3] + anchors[:, 1] # prop_x * anch_w + anch_x
-        result[..., 2] = torch.exp(proposals[..., 2]) * anchors[:, 2]      # exp(prop_h) * anch_h
-        result[..., 3] = torch.exp(proposals[..., 3]) * anchors[:, 3]      # exp(prop_w) * anch_w
+        result[..., 0] = anchors[:, 0] + proposals[..., 0] * anchors[:, 2] # anch_x + prop_x * anch_w
+        result[..., 1] = anchors[:, 1] + proposals[..., 1] * anchors[:, 3] # anch_y + prop_y * anch_h
+        result[..., 2] = anchors[:, 2] * torch.exp(proposals[..., 2])      # anch_w * exp(prop_w)
+        result[..., 3] = anchors[:, 3] * torch.exp(proposals[..., 3])      # anch_h * exp(prop_h)
         return result
 
 
     def _normalize_boxes(self, boxes: torch.Tensor) -> torch.Tensor:
         """
-        Convert (yc, xc, h, w) format to (y_up_left, x_up_left, w, h) format.
+        Convert (xc, yc, h, w) format to (x, y, w, h) format.
         """
         result = boxes.clone()
         result[..., 0] -= boxes[..., 2] / 2
