@@ -40,9 +40,28 @@ Model is trained on one of the most popular datasets for face detection benchmar
 called WIDER FACE. The dataset contains 32203 images with different scales, poses,
 occlusion, face expression and illumination and has more than 390k of labeled faces.
 
-<img src='images/widerface.jpg' width='600'>
+<img src='images/widerface.jpg' width='1000px'>
 
 ## Model details
+
+### Architecture
+
+<img src='images/ainnoface.jpeg' width='1000px'>
+
+AInnoFace model consists of three parts: backbone network, feature pyramid network
+and two different network heads. Main goal of backbone network is to extract features
+from image and pass them to feature pyramid network. Authors of original article
+use ResNet-152 layers as backbone network. Feature pyramid network is used to mix
+"rich" features from the top layers of backbone network with "raw" features
+from bottom layers. More details about feature pyramid network can be found
+in [original article](https://arxiv.org/abs/1612.03144). Each head has its own role:
+first predicts probability of patch to be foreground sample, the other predicts
+shifts for an anchor box. Both heads are applied for each output level of feature pyramid
+network.
+
+### Selective refinement network
+
+### Loss 
 
 ## How to run
 
