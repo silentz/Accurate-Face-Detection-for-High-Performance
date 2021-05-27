@@ -86,7 +86,7 @@ class AInnoFaceLoss(nn.Module):
             iou = torchvision.ops.boxes.box_iou(
                     torch.unsqueeze(box1, 0),
                     torch.unsqueeze(box2, 0))
-            loss += - torch.log(iou[0][0] + 1e-6)
+            loss += - torch.log(iou[0][0] + 1e-2)
 
         return loss
 
@@ -123,8 +123,8 @@ class AInnoFaceLoss(nn.Module):
             image_target_score = target_score[image_id]
 
             # second stage
-            pred_ss_boxes = ss_proposal[:, :4]
-            pred_ss_cls = ss_proposal[:, 4]
+            pred_ss_boxes = ss_proposal[image_id, :, :4]
+            pred_ss_cls = ss_proposal[image_id, :, 4]
 
             ss_positive_mask = (image_target_score >= self.ss_high_threshold)
             ss_negative_mask = (image_target_score < self.ss_low_threshold)
@@ -136,18 +136,22 @@ class AInnoFaceLoss(nn.Module):
             ss_local_str_loss = 0
 
             if ss_positive_count > 0:
+                local_target = torch.ones(ss_positive_count)
+                local_target = local_target.to(ss_proposal.device)
                 ss_local_stc_loss += torchvision.ops.sigmoid_focal_loss(
                                     inputs=pred_ss_cls[ss_positive_mask],
-                                    targets=torch.ones(ss_positive_count),
+                                    targets=local_target,
                                     alpha=0.25,
                                     gamma=2,
                                     reduction='sum',
                                 )
 
             if ss_negative_count > 0:
+                local_target = torch.zeros(ss_negative_count)
+                local_target = local_target.to(ss_proposal.device)
                 ss_local_stc_loss += torchvision.ops.sigmoid_focal_loss(
                                     inputs=pred_ss_cls[ss_negative_mask],
-                                    targets=torch.zeros(ss_negative_count),
+                                    targets=local_target,
                                     alpha=0.25,
                                     gamma=2,
                                     reduction='sum',
@@ -157,7 +161,7 @@ class AInnoFaceLoss(nn.Module):
                 ss_local_stc_loss /= ss_positive_count
 
             if ss_positive_count > 0:
-                iou_loss = self.iou_loss(pred_ss_boxes[ss_positive_mask], target_boxes[ss_positive_mask])
+                iou_loss = self.iou_loss(pred_ss_boxes[ss_positive_mask], image_target_boxes[ss_positive_mask])
                 iou_loss /= ss_positive_count
                 ss_local_str_loss += iou_loss
 
