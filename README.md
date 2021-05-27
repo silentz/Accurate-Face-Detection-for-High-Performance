@@ -61,7 +61,19 @@ network.
 
 ### Selective refinement network
 
+As introduced in ["Selective refinement network"](https://arxiv.org/abs/1809.02693),
+two stage classification and regression are used in AInnoFace model. To improve
+network predictions, we apply convolutions to "raw" backbone network output features
+to obtain low-quality predictions of confidence and anchor box shifts. These
+predictions are later used as a basis for second stage classification and regression
+predictors. This approach changes model loss functions with adding new penalties
+for the first stage:
+
+<img src='images/srn.png' width='600px'>
+
 ### Loss 
+
+### Optimizer and lr scheduler
 
 ## How to run
 
