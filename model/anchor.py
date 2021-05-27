@@ -71,8 +71,8 @@ def generate_anchor_boxes(height: int,
     sc = np.expand_dims(sc.ravel(), axis=1)
 
     # calculating width and height
-    h = base_size * downsampling_factor * sc * np.sqrt(ar)
-    w = base_size * downsampling_factor * sc / np.sqrt(ar)
+    h = (base_size / downsampling_factor) * sc * np.sqrt(ar)
+    w = (base_size / downsampling_factor) * sc / np.sqrt(ar)
 
     result = np.hstack([xc, yc, w, h])
     result = result.reshape(height, width, -1, 4)
