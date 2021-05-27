@@ -81,11 +81,16 @@ detection.
 
 <img src='images/focal_loss.png' width='600px'>
 
+Regression head uses IoU loss between predicted bounding boxes
+and ground truth bounding boxes. Intersection over union is
+the most popular evaluation metric for detection problems, and here
+it is directly optimized.
+
+<img src='images/iou.png' width='600px'>
+
 ### Optimizer and lr scheduler
 
 ## How to run
-
-### Requirements
 
 ### Dataset
 
