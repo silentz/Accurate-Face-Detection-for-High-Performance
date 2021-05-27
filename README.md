@@ -46,7 +46,7 @@ occlusion, face expression and illumination and has more than 390k of labeled fa
 
 ### Architecture
 
-<img src='images/ainnoface.jpeg' width='1000px'>
+<img src='images/ainnoface.jpeg' width='600px'>
 
 AInnoFace model consists of three parts: backbone network, feature pyramid network
 and two different network heads. Main goal of backbone network is to extract features
