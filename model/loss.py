@@ -36,16 +36,16 @@ class AInnoFaceLoss(nn.Module):
         Parameters
         ----------
         anchors
-            Torch tensor of shape (C, 4) containing anchor boxes in (left_up_y, left_up_x, w, h)
+            Torch tensor of shape (C, 4) containing anchor boxes in (x, y, w, h)
             format.
         ground_truth
             List of torch tensors of shape (K, 4) containing ground truth boxes for each image of batch
-            in (left_up_y, left_up_x, w, h) format.
+            in (x, y, w, h) format.
 
         Returns
         -------
         Two torch.Tensors, one containing coordinates of most probable ground
-        truth box for each anchor box in format (left_up_y, left_up_x, w, h) and
+        truth box for each anchor box in format (x, y, w, h) and
         other containig IoU score for each box.
         """
 
@@ -81,17 +81,12 @@ class AInnoFaceLoss(nn.Module):
         boxes_1 = torchvision.ops.box_convert(boxes_1, in_fmt='xywh', out_fmt='xyxy')
         boxes_2 = torchvision.ops.box_convert(boxes_2, in_fmt='xywh', out_fmt='xyxy')
         loss = 0
-        count = 0
 
         for box1, box2 in zip(boxes_1, boxes_2):
             iou = torchvision.ops.boxes.box_iou(
                     torch.unsqueeze(box1, 0),
                     torch.unsqueeze(box2, 0))
             loss += - torch.log(iou[0][0] + 1e-6)
-            count += 1
-
-        if count == 0:
-            count = 1
 
         return loss
 
@@ -113,44 +108,66 @@ class AInnoFaceLoss(nn.Module):
             Ground truth bounding boxes for images.
         """
 
-        target_boxes, target_scores = self.get_target_boxes_with_scores(anchors, ground_truth)
+        # TODO: add fs stage
 
-        # flatten structure
-        target_boxes = target_boxes.view(-1, 4)
-        target_scores = target_scores.view(-1)
-        ss_proposal = ss_proposal.reshape(-1, 6)
+        batch_size = ss_proposal.shape[0]
+        target_boxes, target_score = self.get_target_boxes_with_scores(anchors, ground_truth)
 
-        if self.two_step:
-            fs_proposal = fs_proposal.reshape(-1, 6)
+        fs_stc_loss = 0
+        fs_str_loss = 0
+        ss_str_loss = 0
+        ss_stc_loss = 0
 
-        # calulating stage ids
-        ss_pos = (target_scores >= self.ss_high_threshold)
-        ss_neg = (target_scores <= self.ss_low_threshold)
-        ss_pos_count = ss_pos.sum().item()
-        if ss_pos_count < 1e-1: ss_pos_count = 1
+        for image_id in range(batch_size):
+            image_target_boxes = target_boxes[image_id]
+            image_target_score = target_score[image_id]
 
-        if self.two_step:
-            fs_pos = (target_scores >= self.fs_high_threshold)
-            fs_neg = (target_scores <= self.fs_low_threshold)
-            fs_pos_count = fs_pos.sum().item()
-            if fs_pos_count < 1e-1: fs_pos_count = 1
+            # second stage
+            pred_ss_boxes = ss_proposal[:, :4]
+            pred_ss_cls = ss_proposal[:, 4]
 
-        # stc loss
-        ss_stc_loss = torchvision.ops.sigmoid_focal_loss(
-                        ss_proposal[:, 4], target_scores, alpha=0.25, gamma=2, reduction='mean') / ss_pos_count
+            ss_positive_mask = (image_target_score >= self.ss_high_threshold)
+            ss_negative_mask = (image_target_score < self.ss_low_threshold)
 
-        if self.two_step:
-            fs_stc_loss = torchvision.ops.sigmoid_focal_loss(
-                        fs_proposal[:, 4], target_scores, alpha=0.25, gamma=2, reduction='mean') / fs_pos_count
+            ss_positive_count = ss_positive_mask.sum().item()
+            ss_negative_count = ss_negative_mask.sum().item()
 
-        # str loss
-        ss_str_loss = self.iou_loss(ss_proposal[ss_pos][:, 0:4], target_boxes[ss_pos]) / ss_pos_count
+            ss_local_stc_loss = 0
+            ss_local_str_loss = 0
 
-        if self.two_step:
-            fs_str_loss = self.iou_loss(fs_proposal[fs_pos][:, 0:4], target_boxes[fs_pos]) / fs_pos_count
+            if ss_positive_count > 0:
+                ss_local_stc_loss += torchvision.ops.sigmoid_focal_loss(
+                                    inputs=pred_ss_cls[ss_positive_mask],
+                                    targets=torch.ones(ss_positive_count),
+                                    alpha=0.25,
+                                    gamma=2,
+                                    reduction='sum',
+                                )
 
-        if self.two_step:
-            return ss_stc_loss + fs_stc_loss + ss_str_loss + fs_str_loss
+            if ss_negative_count > 0:
+                ss_local_stc_loss += torchvision.ops.sigmoid_focal_loss(
+                                    inputs=pred_ss_cls[ss_negative_mask],
+                                    targets=torch.zeros(ss_negative_count),
+                                    alpha=0.25,
+                                    gamma=2,
+                                    reduction='sum',
+                                )
 
-        return ss_stc_loss + ss_str_loss
+            if ss_positive_count > 0:
+                ss_local_stc_loss /= ss_positive_count
+
+            if ss_positive_count > 0:
+                iou_loss = self.iou_loss(pred_ss_boxes[ss_positive_mask], target_boxes[ss_positive_mask])
+                iou_loss /= ss_positive_count
+                ss_local_str_loss += iou_loss
+
+            ss_stc_loss += ss_local_stc_loss
+            ss_str_loss += ss_local_str_loss
+
+        fs_stc_loss /= batch_size
+        fs_str_loss /= batch_size
+        ss_stc_loss /= batch_size
+        ss_str_loss /= batch_size
+        total = fs_stc_loss + fs_str_loss + ss_stc_loss + ss_str_loss
+        return total
 
