@@ -1,7 +1,7 @@
 # Accurate Face Detection for High Performance
 
 This project is implementation of computer vision model for face detection
-introduced in ["Accurate Face Detection for High Performance "](https://arxiv.org/pdf/1905.01585v3.pdf)
+introduced in ["Accurate Face Detection for High Performance"](https://arxiv.org/pdf/1905.01585v3.pdf)
 article.
 
 ## Table of contents
@@ -35,6 +35,12 @@ article.
 ```
 
 ## Data overview
+
+Model is trained on one of the most popular datasets for face detection benchmark
+called WIDER FACE. The dataset contains 32203 images with different scales, poses,
+occlusion, face expression and illumination and has more than 390k of labeled faces.
+
+<img src='images/widerface.jpg' width='600'>
 
 ## Model details
 
