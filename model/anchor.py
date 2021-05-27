@@ -45,11 +45,11 @@ def generate_anchor_boxes(height: int,
     -------
     torch.Tensor with following format: (H, W, C, 4), where C
     is amount of generated anchor boxes for each point, H is grid height,
-    W is grid width and last 4 numbers are anchor box coordinates: (yc, xc, h, w).
-        yc - y coordinate of anchor box center.
+    W is grid width and last 4 numbers are anchor box coordinates: (xc, yc, w, h).
         xc - x coordinate of anchor box center.
-        h - height of anchor box.
+        yc - y coordinate of anchor box center.
         w - width of anchor box.
+        h - height of anchor box.
     """
 
     if height <= 0 or width <= 0:
@@ -74,7 +74,7 @@ def generate_anchor_boxes(height: int,
     h = base_size * downsampling_factor * sc * np.sqrt(ar)
     w = base_size * downsampling_factor * sc / np.sqrt(ar)
 
-    result = np.hstack([yc, xc, h, w])
+    result = np.hstack([xc, yc, w, h])
     result = result.reshape(height, width, -1, 4)
     return torch.from_numpy(result).type(torch.float32)
 
