@@ -79,14 +79,14 @@ which penalizes high-confident predictions less. This is extremely
 important for problems with high class imbalance, like it is in face
 detection.
 
-<img src='images/focal_loss.png' width='600px'>
+<img src='images/focal_loss.png' width='400px'>
 
 Regression head uses IoU loss between predicted bounding boxes
 and ground truth bounding boxes. Intersection over union is
 the most popular evaluation metric for detection problems, and here
 it is directly optimized.
 
-<img src='images/iou.png' width='600px'>
+<img src='images/iou.png' width='300px'>
 
 ### Optimizer and lr scheduler
 
