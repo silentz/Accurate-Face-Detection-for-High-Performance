@@ -66,3 +66,68 @@ class TestAInnoFace:
         assert torch.allclose(prep_norm_cls, AInnoFace._flatten_pred_cls(unnormalized_cls))
         assert torch.allclose(prep_norm_anchors, AInnoFace._flatten_anchors(unnormalized_anchors))
 
+
+    def test_normalization_2(self):
+        pred_box = torch.Tensor([[
+                [
+                    [0., 0., 0., 0., 1., 1., 1., 1.],
+                    [2., 2., 2., 2., 3., 3., 3., 3.],
+                ],
+                [
+                    [4., 4., 4., 4., 5., 5., 5., 5.],
+                    [6., 6., 6., 6., 7., 7., 7., 7.],
+                ]
+            ]])
+
+        pred_cls = torch.Tensor([[
+                [
+                    [0., 1.],
+                    [2., 3.],
+                ],
+                [
+                    [4., 5.],
+                    [6., 7.],
+                ],
+            ]])
+
+        init_anchors = torch.Tensor([
+                [
+                    [[0., 0., 0., 0.], [1., 1., 1., 1.]],
+                    [[2., 2., 2., 2.], [3., 3., 3., 3.]],
+                ],
+                [
+                    [[4., 4., 4., 4.], [5., 5., 5., 5.]],
+                    [[6., 6., 6., 6.], [7., 7., 7., 7.]],
+                ],
+            ])
+
+        post_box = AInnoFace._flatten_pred_box(pred_box)
+        post_cls = AInnoFace._flatten_pred_cls(pred_cls)
+        post_anc = AInnoFace._flatten_anchors(init_anchors)
+
+        assert torch.allclose(post_box, torch.Tensor([[
+                [0., 0., 0., 0.],
+                [1., 1., 1., 1.],
+                [2., 2., 2., 2.],
+                [3., 3., 3., 3.],
+                [4., 4., 4., 4.],
+                [5., 5., 5., 5.],
+                [6., 6., 6., 6.],
+                [7., 7., 7., 7.],
+            ]]))
+
+        assert torch.allclose(post_cls, torch.Tensor([[
+                [0.], [1.], [2.], [3.], [4.], [5.], [6.], [7.],
+            ]]))
+
+        assert torch.allclose(post_anc, torch.Tensor([
+                [0., 0., 0., 0.],
+                [1., 1., 1., 1.],
+                [2., 2., 2., 2.],
+                [3., 3., 3., 3.],
+                [4., 4., 4., 4.],
+                [5., 5., 5., 5.],
+                [6., 6., 6., 6.],
+                [7., 7., 7., 7.],
+            ]))
+
