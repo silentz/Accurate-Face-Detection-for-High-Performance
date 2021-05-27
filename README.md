@@ -90,6 +90,12 @@ it is directly optimized.
 
 ### Optimizer and lr scheduler
 
+To train the model Stochastic gradient descent method is used along with
+learning rate scheduler for 100 epochs. Here are learning rate and
+momentum plots:
+
+<img src='images/lr_momentum.png' width='600px'>
+
 ## How to run
 
 ### Dataset
