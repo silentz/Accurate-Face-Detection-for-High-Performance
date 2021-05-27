@@ -303,7 +303,7 @@ class AInnoFace(nn.Module):
                                                   downsampling_factor=downsampling_factor,
                                                   aspect_ratios=[1.25],
                                                   scales=[2, 2 * np.sqrt(2)],
-                                                  base_size=2)
+                                                  base_size=256)
             level_anchors = level_anchors.to(device)
 
             # shape anchors correctly
