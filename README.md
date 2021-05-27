@@ -73,6 +73,14 @@ for the first stage:
 
 ### Loss 
 
+Each of the heads uses its own loss function. Classifiaction head
+uses Focal loss. Focal loss is modification of crossentropy loss
+which penalizes high-confident predictions less. This is extremely
+important for problems with high class imbalance, like it is in face
+detection.
+
+<img src='images/focal_loss.png' width='600px'>
+
 ### Optimizer and lr scheduler
 
 ## How to run
