@@ -100,9 +100,65 @@ momentum plots:
 
 ### Dataset
 
+1. Download dataset and annotations from http://shuoyang1213.me/WIDERFACE/.
+2. Place each archive in `data/` directory.
+3. Execute foloowing commands inside `data/` directory:
+```
+unzip WIDER_train.zip
+unzip WIDER_val.zip
+unzip WIDER_test.zip
+unzip wider_face_split.zip
+```
+
 ### Training
+
+Follow these steps to launch model training:
+1. Create virtual environment:
+```
+virtualenv --python=python3.8 venv
+```
+2. Active virtual environment:
+```
+source venv/bin/activate
+```
+3. Install required dependancies:
+```
+pip install -r requirements.txt
+```
+4. Run model tests before training:
+```
+make unittest
+```
+5. Run model training:
+```
+make train
+```
 
 ### Evaluation
 
+Follow these steps to launch model inference:
+1. Create virtual environment:
+```
+virtualenv --python=python3.8 venv
+```
+2. Active virtual environment:
+```
+source venv/bin/activate
+```
+3. Install required dependancies:
+```
+pip install -r requirements.txt
+```
+4. Run model tests before training:
+```
+make unittest
+```
+5. Launch model:
+```
+python3 cmd/run.py --checkpoint <checkpoint_path> --image <image_path> --output <result_path>
+```
+
 ## Download
+
+Trained model checkpoint can be downloaded from: TBA
 
