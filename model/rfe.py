@@ -28,7 +28,7 @@ class ReceptiveFieldEnrichment(nn.Module):
         self.branch_1 = nn.Sequential(
                 nn.Conv2d(in_channels,    self._channels, kernel_size=(1, 1), padding=(0, 0)),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(self._channels, self._channels, kernel_size=(1, 3), padding=(0, 1)),
+                nn.Conv2d(self._channels, self._channels, kernel_size=(1, 5), padding=(0, 1)),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(self._channels, self._channels, kernel_size=(1, 1), padding=(0, 0)),
                 nn.ReLU(inplace=True),
@@ -37,7 +37,7 @@ class ReceptiveFieldEnrichment(nn.Module):
         self.branch_2 = nn.Sequential(
                 nn.Conv2d(in_channels,    self._channels, kernel_size=(1, 1), padding=(0, 0)),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(self._channels, self._channels, kernel_size=(1, 5), padding=(0, 2)),
+                nn.Conv2d(self._channels, self._channels, kernel_size=(5, 1), padding=(0, 2)),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(self._channels, self._channels, kernel_size=(1, 1), padding=(0, 0)),
                 nn.ReLU(inplace=True),
@@ -46,7 +46,7 @@ class ReceptiveFieldEnrichment(nn.Module):
         self.branch_3 = nn.Sequential(
                 nn.Conv2d(in_channels,    self._channels, kernel_size=(1, 1), padding=(0, 0)),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(self._channels, self._channels, kernel_size=(3, 1), padding=(1, 0)),
+                nn.Conv2d(self._channels, self._channels, kernel_size=(1, 3), padding=(1, 0)),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(self._channels, self._channels, kernel_size=(1, 1), padding=(0, 0)),
                 nn.ReLU(inplace=True),
@@ -55,7 +55,7 @@ class ReceptiveFieldEnrichment(nn.Module):
         self.branch_4 = nn.Sequential(
                 nn.Conv2d(in_channels,    self._channels, kernel_size=(1, 1), padding=(0, 0)),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(self._channels, self._channels, kernel_size=(5, 1), padding=(2, 0)),
+                nn.Conv2d(self._channels, self._channels, kernel_size=(3, 1), padding=(2, 0)),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(self._channels, self._channels, kernel_size=(1, 1), padding=(0, 0)),
                 nn.ReLU(inplace=True),

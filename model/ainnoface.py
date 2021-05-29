@@ -34,9 +34,9 @@ from .anchor import generate_anchor_boxes
 
 class AInnoFace(nn.Module):
 
-    def __init__(self, backbone: str = 'resnet18',
+    def __init__(self, backbone: str = 'resnet50',
                        num_anchors: int = 2,
-                       interpolation_mode: str = 'nearest',
+                       interpolation_mode: str = 'bilinear',
                        compute_first_step: bool = True):
         """
         Parameters
@@ -73,7 +73,7 @@ class AInnoFace(nn.Module):
             self._backbone_channels = [256, 512, 1024, 2048]
             self.backbone = resnet50_pretrained()
         elif backbone == 'resnet34':
-            self._channels = 128
+            self._channels = 64
             self._backbone_channels = [64, 128, 256, 512]
             self.backbone = resnet34_pretrained()
         elif backbone == 'resnet18':
@@ -116,14 +116,22 @@ class AInnoFace(nn.Module):
 
         # classification head
         self.cls_head = nn.Sequential(
+                nn.Conv2d(self._channels, self._channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
                 ReceptiveFieldEnrichment(in_channels=self._channels),
-                nn.Conv2d(self._channels, num_anchors, kernel_size=1),
+                nn.Conv2d(self._channels, self._channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(self._channels, num_anchors, kernel_size=1, padding=0),
             )
 
         # bbox regression head
         self.box_head = nn.Sequential(
+                nn.Conv2d(self._channels, self._channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
                 ReceptiveFieldEnrichment(in_channels=self._channels),
-                nn.Conv2d(self._channels, num_anchors * 4, kernel_size=1),
+                nn.Conv2d(self._channels, self._channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(self._channels, num_anchors * 4, kernel_size=1, padding=0),
             )
 
         # normalization transforms
