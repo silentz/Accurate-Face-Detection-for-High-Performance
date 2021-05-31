@@ -9,6 +9,7 @@ import os
 import cv2
 import torch
 import argparse
+import torchvision
 import model.ainnoface
 import model.widerface
 
@@ -31,10 +32,25 @@ def run_model(checkpoint: str, image_path: str, output_path: str):
     proposals = ss[0]
 
     result = model.widerface.WIDERFACEImage(pixels=image)
+    candidates = []
+    scores = []
+
     for bbox in proposals:
         x, y, w, h, p, level = bbox
-        if torch.sigmoid(p) > 0.5:
-            result.add_bbox(x, y, w, h)
+        if p > 0.5:
+            candidates.append([x, y, w, h])
+            scores.append(p)
+
+    candidates = torch.Tensor(candidates)
+    scores = torch.Tensor(scores)
+    candidates = torchvision.ops.box_convert(candidates, in_fmt='xywh', out_fmt='xyxy')
+    nms_boxes = torchvision.ops.nms(candidates, scores, 0.05)
+    candidates = candidates[nms_boxes]
+    nms_boxes = torchvision.ops.box_convert(candidates, in_fmt='xyxy', out_fmt='xywh')
+
+    for bbox in nms_boxes:
+        x, y, w, h = bbox
+        result.add_bbox(x, y, w, h)
 
     final = result.render(format='pillow')
     final.save(output_path)
