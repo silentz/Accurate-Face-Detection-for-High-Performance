@@ -34,10 +34,9 @@ from .anchor import generate_anchor_boxes
 
 class AInnoFace(nn.Module):
 
-    def __init__(self, backbone: str = 'resnet18',
+    def __init__(self, backbone: str = 'resnet50',
                        num_anchors: int = 2,
-                       interpolation_mode: str = 'nearest',
-                       compute_first_step: bool = True):
+                       interpolation_mode: str = 'bilinear'):
         """
         Parameters
         ----------
@@ -50,14 +49,10 @@ class AInnoFace(nn.Module):
         interpolation_mode
             Mode to use in feature pyramid network to upsample
             tensors from upper levels.
-        compute_first_step
-            Compute first step proposals or not (computing them
-            is not required in test mode).
         """
 
         super(AInnoFace, self).__init__()
         self.interpolation_mode = interpolation_mode
-        self._compute_fs = compute_first_step
 
         # configuring backbone
         if backbone == 'resnet152':
@@ -73,7 +68,7 @@ class AInnoFace(nn.Module):
             self._backbone_channels = [256, 512, 1024, 2048]
             self.backbone = resnet50_pretrained()
         elif backbone == 'resnet34':
-            self._channels = 128
+            self._channels = 64
             self._backbone_channels = [64, 128, 256, 512]
             self.backbone = resnet34_pretrained()
         elif backbone == 'resnet18':
@@ -116,14 +111,22 @@ class AInnoFace(nn.Module):
 
         # classification head
         self.cls_head = nn.Sequential(
+                nn.Conv2d(self._channels, self._channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
                 ReceptiveFieldEnrichment(in_channels=self._channels),
-                nn.Conv2d(self._channels, num_anchors, kernel_size=1),
+                nn.Conv2d(self._channels, self._channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(self._channels, num_anchors, kernel_size=1, padding=0),
             )
 
         # bbox regression head
         self.box_head = nn.Sequential(
+                nn.Conv2d(self._channels, self._channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
                 ReceptiveFieldEnrichment(in_channels=self._channels),
-                nn.Conv2d(self._channels, num_anchors * 4, kernel_size=1),
+                nn.Conv2d(self._channels, self._channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(self._channels, num_anchors * 4, kernel_size=1, padding=0),
             )
 
         # normalization transforms
@@ -249,39 +252,35 @@ class AInnoFace(nn.Module):
 
         # extracting raw features
         raw_level1, raw_level2, raw_level3, raw_level4 = self.backbone(images)
-
-        if self._compute_fs:
-            raw_level5 = F.relu(self.raw_level5(raw_level4))
-            raw_level6 = F.relu(self.raw_level6(raw_level5))
+        raw_level5 = self.raw_level5(raw_level4)
+        raw_level6 = self.raw_level6(raw_level5)
 
         # computing fpn features
-        fpn_level4 = F.relu(self.fpn_lateral4(raw_level4))
-        fpn_level3 = F.relu(self.fpn_lateral3(raw_level3)) + self._fpn_upsample(fpn_level4)
-        fpn_level2 = F.relu(self.fpn_lateral2(raw_level2)) + self._fpn_upsample(fpn_level3)
-        fpn_level1 = F.relu(self.fpn_lateral1(raw_level1)) + self._fpn_upsample(fpn_level2)
+        fpn_level4 = self.fpn_lateral4(raw_level4)
+        fpn_level3 = self.fpn_lateral3(raw_level3) + self._fpn_upsample(fpn_level4)
+        fpn_level2 = self.fpn_lateral2(raw_level2) + self._fpn_upsample(fpn_level3)
+        fpn_level1 = self.fpn_lateral1(raw_level1) + self._fpn_upsample(fpn_level2)
 
         # first stage of selective refinement network
-        if self._compute_fs:
-            srn_fs_level1 = F.relu(self.srn_fs_conv1(raw_level1))
-            srn_fs_level2 = F.relu(self.srn_fs_conv2(raw_level2))
-            srn_fs_level3 = F.relu(self.srn_fs_conv3(raw_level3))
-            srn_fs_level4 = F.relu(self.srn_fs_conv4(raw_level4))
-            srn_fs_level5 = F.relu(self.srn_fs_conv5(raw_level5))
-            srn_fs_level6 = F.relu(self.srn_fs_conv6(raw_level6))
+        srn_fs_level1 = self.srn_fs_conv1(raw_level1)
+        srn_fs_level2 = self.srn_fs_conv2(raw_level2)
+        srn_fs_level3 = self.srn_fs_conv3(raw_level3)
+        srn_fs_level4 = self.srn_fs_conv4(raw_level4)
+        srn_fs_level5 = self.srn_fs_conv5(raw_level5)
+        srn_fs_level6 = self.srn_fs_conv6(raw_level6)
 
         # second stage of selective refinement network
-        srn_ss_level1 = F.relu(self.srn_ss_conv1(fpn_level1))
-        srn_ss_level2 = F.relu(self.srn_ss_conv2(fpn_level2))
-        srn_ss_level3 = F.relu(self.srn_ss_conv3(fpn_level3))
-        srn_ss_level4 = F.relu(self.srn_ss_conv4(fpn_level4))
-        srn_ss_level5 = F.relu(self.srn_ss_conv5(fpn_level4))    # explained in SRN article
-        srn_ss_level6 = F.relu(self.srn_ss_conv6(srn_ss_level5)) # explained in SRN article
+        srn_ss_level1 = self.srn_ss_conv1(fpn_level1)
+        srn_ss_level2 = self.srn_ss_conv2(fpn_level2)
+        srn_ss_level3 = self.srn_ss_conv3(fpn_level3)
+        srn_ss_level4 = self.srn_ss_conv4(fpn_level4)
+        srn_ss_level5 = self.srn_ss_conv5(fpn_level4)    # explained in SRN article
+        srn_ss_level6 = self.srn_ss_conv6(srn_ss_level5) # explained in SRN article
 
         # computing head outputs
-        if self._compute_fs:
-            srn_fs = [srn_fs_level1, srn_fs_level2, srn_fs_level3, srn_fs_level4, srn_fs_level5, srn_fs_level6]
-            cls_head_fs = [self.cls_head(x) for x in srn_fs]
-            box_head_fs = [self.box_head(x) for x in srn_fs]
+        srn_fs = [srn_fs_level1, srn_fs_level2, srn_fs_level3, srn_fs_level4, srn_fs_level5, srn_fs_level6]
+        cls_head_fs = [self.cls_head(x) for x in srn_fs]
+        box_head_fs = [self.box_head(x) for x in srn_fs]
 
         srn_ss = [srn_ss_level1, srn_ss_level2, srn_ss_level3, srn_ss_level4, srn_ss_level5, srn_ss_level6]
         cls_head_ss = [self.cls_head(x) for x in srn_ss]
@@ -310,6 +309,18 @@ class AInnoFace(nn.Module):
             anchors_original_shape = level_anchors.shape
             level_anchors = self._flatten_anchors(level_anchors)
 
+            # first stage proposals
+            _, fs_channels, fs_height, fs_width = box_head_fs[level].shape
+            assert (fs_height, fs_width, fs_channels // 4, 4) == anchors_original_shape
+
+            fs_level_cls = self._flatten_pred_cls(cls_head_fs[level].permute(0, 2, 3, 1))
+            fs_level_box = self._flatten_pred_box(box_head_fs[level].permute(0, 2, 3, 1))
+            fs_level_box = self._move_anchors(level_anchors, fs_level_box)
+            fs_level_box = self._normalize_boxes(fs_level_box)
+            fs_level_id = torch.full_like(fs_level_cls, fill_value=level + 1)
+            fs_level_pred = torch.cat([fs_level_box, fs_level_cls, fs_level_id], dim=2)
+            proposals_fs.append(fs_level_pred)
+
             # second stage proposals
             _, ss_channels, ss_height, ss_width = box_head_ss[level].shape
             assert (ss_height, ss_width, ss_channels // 4, 4) == anchors_original_shape
@@ -322,19 +333,6 @@ class AInnoFace(nn.Module):
             ss_level_pred = torch.cat([ss_level_box, ss_level_cls, ss_level_id], dim=2)
             proposals_ss.append(ss_level_pred)
 
-            # first stage proposals
-            if self._compute_fs:
-                _, fs_channels, fs_height, fs_width = box_head_fs[level].shape
-                assert (fs_height, fs_width, fs_channels // 4, 4) == anchors_original_shape
-
-                fs_level_cls = self._flatten_pred_cls(cls_head_fs[level].permute(0, 2, 3, 1))
-                fs_level_box = self._flatten_pred_box(box_head_fs[level].permute(0, 2, 3, 1))
-                fs_level_box = self._move_anchors(level_anchors, fs_level_box)
-                fs_level_box = self._normalize_boxes(fs_level_box)
-                fs_level_id = torch.full_like(fs_level_cls, fill_value=level + 1)
-                fs_level_pred = torch.cat([fs_level_box, fs_level_cls, fs_level_id], dim=2)
-                proposals_fs.append(fs_level_pred)
-
             # normalize anchors before append
             level_anchors = self._normalize_boxes(level_anchors)
             anchors.append(level_anchors)
@@ -342,13 +340,6 @@ class AInnoFace(nn.Module):
         # concatinating tensors
         anchors = torch.cat(anchors, dim=0)
         proposals_ss = torch.cat(proposals_ss, dim=1)
+        proposals_fs = torch.cat(proposals_fs, dim=1)
 
-        if self._compute_fs:
-            proposals_fs = torch.cat(proposals_fs, dim=1)
-
-        # return result
-        if self._compute_fs:
-            return proposals_fs, proposals_ss, anchors
-
-        return proposals_ss, anchors
-
+        return proposals_fs, proposals_ss, anchors

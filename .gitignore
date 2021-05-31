@@ -8,3 +8,4 @@ weights/*.pth
 lightning_logs/
 .env
 Neptune/
+exp/
