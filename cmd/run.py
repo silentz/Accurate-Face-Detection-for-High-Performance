@@ -18,12 +18,14 @@ def run_model(checkpoint: str, image_path: str, output_path: str):
     params = torch.load(checkpoint)
     ainnoface = model.ainnoface.AInnoFace()
     ainnoface.load_state_dict(params)
+    ainnoface.eval()
 
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-    model_input = [image,]
-    fs, ss, anchors = ainnoface(model_input)
+    with torch.no_grad():
+        model_input = [image,]
+        fs, ss, anchors = ainnoface(model_input)
 
     ss = ss.detach().cpu()
     proposals = ss[0]
