@@ -44,7 +44,7 @@ def run_model(checkpoint: str, image_path: str, output_path: str):
     candidates = torch.Tensor(candidates)
     scores = torch.Tensor(scores)
     candidates = torchvision.ops.box_convert(candidates, in_fmt='xywh', out_fmt='xyxy')
-    nms_boxes = torchvision.ops.nms(candidates, scores, 0.05)
+    nms_boxes = torchvision.ops.nms(candidates, scores, 0.4)
     candidates = candidates[nms_boxes]
     nms_boxes = torchvision.ops.box_convert(candidates, in_fmt='xyxy', out_fmt='xywh')
 
