@@ -37,7 +37,7 @@ def run_model(checkpoint: str, image_path: str, output_path: str):
 
     for bbox in proposals:
         x, y, w, h, p, level = bbox
-        if p > 0.5:
+        if torch.sigmoid(p) > 0.5:
             candidates.append([x, y, w, h])
             scores.append(p)
 

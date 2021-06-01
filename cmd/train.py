@@ -27,10 +27,10 @@ class TrainModule(pl.LightningModule):
 
     def __init__(self):
         super(TrainModule, self).__init__()
-        self._compute_fs = False
+        self._compute_fs = True
         self._device_ident = nn.Parameter(torch.empty(0))
-        self.ainnoface = AInnoFace(backbone='resnet18', compute_first_step=self._compute_fs)
-        self.loss = AInnoFaceLoss(two_step=self._compute_fs)
+        self.ainnoface = AInnoFace(backbone='resnet18')
+        self.loss = AInnoFaceLoss()
 
 
     def configure_optimizers(self):
