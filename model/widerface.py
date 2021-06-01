@@ -22,7 +22,7 @@ from PIL.Image import Image as PILImage
 
 class WIDERFACEImage:
 
-    def __init__(self, filename: typing.Union[str, bytes, os.PathLike],
+    def __init__(self, filename: typing.Union[str, bytes, os.PathLike] = '',
                        bboxes: typing.List[typing.Dict] = [],
                        lazy_load: bool = True,
                        pixels: np.ndarray = None):
