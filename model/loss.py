@@ -138,27 +138,29 @@ class AInnoFaceLoss(nn.Module):
             if ss_positive_count > 0:
                 local_target = torch.ones(ss_positive_count)
                 local_target = local_target.to(ss_proposal.device)
-                ss_local_stc_loss += torchvision.ops.sigmoid_focal_loss(
+                ss_stc_pos_loss = torchvision.ops.sigmoid_focal_loss(
                                     inputs=pred_ss_cls[ss_positive_mask],
                                     targets=local_target,
                                     alpha=0.25,
                                     gamma=2,
-                                    reduction='mean',
-                                )
+                                    reduction='sum',
+                                ) / ss_positive_count
+                ss_local_stc_loss += ss_stc_pos_loss
 
             if ss_negative_count > 0:
                 local_target = torch.zeros(ss_negative_count)
                 local_target = local_target.to(ss_proposal.device)
-                ss_local_stc_loss += torchvision.ops.sigmoid_focal_loss(
+                ss_stc_neg_loss = torchvision.ops.sigmoid_focal_loss(
                                     inputs=pred_ss_cls[ss_negative_mask],
                                     targets=local_target,
                                     alpha=0.25,
                                     gamma=2,
-                                    reduction='mean',
-                                )
+                                    reduction='sum',
+                                ) / ss_negative_count
+                ss_local_stc_loss += ss_stc_neg_loss
 
-            if ss_positive_count > 0:
-                ss_local_stc_loss /= ss_positive_count
+            #  if ss_positive_count > 0:
+            #      ss_local_stc_loss /= ss_positive_count
 
             if ss_positive_count > 0:
                 iou_loss = self.iou_loss(pred_ss_boxes[ss_positive_mask], image_target_boxes[ss_positive_mask])
