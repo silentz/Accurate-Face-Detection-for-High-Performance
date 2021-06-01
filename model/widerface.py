@@ -192,7 +192,7 @@ class WIDERFACEImage:
         result = []
 
         for bbox in self.bboxes:
-            result.append(torch.Tensor([bbox['y'], bbox['x'], bbox['h'], bbox['w']]))
+            result.append(torch.Tensor([bbox['x'], bbox['y'], bbox['w'], bbox['h']]))
 
         if len(result) == 0:
             return torch.Tensor([])
