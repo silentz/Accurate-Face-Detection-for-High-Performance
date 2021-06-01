@@ -73,14 +73,12 @@ class TrainModule(pl.LightningModule):
     def validation_step(self, batch, *args, **kwargs):
         images = [img.pixels(format='torch') for img in batch]
         bboxes = [img.torch_bboxes() for img in batch]
-        bboxes = [img.to(self._device_ident.device) for img in bboxes]
+        gt_bboxes = [img.to(self._device_ident.device) for img in bboxes]
 
         if self._compute_fs:
             fs, ss, anchors = self.ainnoface(images, device=self._device_ident.device)
-            loss = self.loss(fs_proposal=fs, ss_proposal=ss, anchors=anchors, ground_truth=bboxes)
         else:
             ss, anchors = self.ainnoface(images, device=self._device_ident.device)
-            loss = self.loss(ss_proposal=ss, anchors=anchors, ground_truth=bboxes)
 
         result_images = []
         for idx, image in enumerate(batch):
@@ -88,11 +86,13 @@ class TrainModule(pl.LightningModule):
             image_proposals = ss[idx]
             bboxes = image_proposals[torch.sigmoid(image_proposals[:, 4]) >= 0.5][:, 0:4]
             for bbox in bboxes:
-                new_image.add_bbox(x=bbox[1], y=bbox[0], w=bbox[3], h=bbox[2])
+                new_image.add_bbox(x=bbox[0], y=bbox[1], w=bbox[2], h=bbox[3])
+            for bbox in gt_bboxes[idx]:
+                new_image.add_bbox(x=bbox[0], y=bbox[1], w=bbox[2], h=bbox[3], color=(255, 0, 0))
             rendered = new_image.render(format='pillow')
             self.logger.experiment.log_image('model_out', rendered, description=str(len(bboxes)))
 
-        return loss
+        return 0
 
 
 
@@ -141,7 +141,8 @@ def run_train_loop():
             gpus=2,
             accumulate_grad_batches=2,
             logger=neptune_logger,
-            #  val_check_interval=100,
+            val_check_interval=100,
+            gradient_clip_val=0.5,
             limit_val_batches=2,
             max_epochs=100,
             precision=32,
