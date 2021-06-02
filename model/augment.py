@@ -72,7 +72,7 @@ class AugmentedWIDERFACEDataset(WIDERFACEDataset):
                 A.PadIfNeeded(min_height=1024, min_width=1024, p=1, border_mode=cv2.BORDER_CONSTANT),
                 A.CenterCrop(height=1024, width=1024, p=1),
                 A.Resize(height=512, width=512, p=1),
-            ], bbox_params=A.BboxParams(format='coco', min_area=16, label_fields=[]))
+            ], bbox_params=A.BboxParams(format='coco', min_visibility=0.1, label_fields=[]))
 
 
     def __getitem__(self, index: typing.Union[int, str, bytes, os.PathLike]) -> WIDERFACEImage:
