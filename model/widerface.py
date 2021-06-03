@@ -309,7 +309,7 @@ class WIDERFACEDataset(torch.utils.data.Dataset):
 
             try:
                 for bbox_id in range(bbox_count):
-                    bbox = [int(x) for x in bbox_raw[bbox_id].split()]
+                    bbox = [float(x) for x in bbox_raw[bbox_id].split()]
                     bbox = {x: y for x, y in zip(bbox_keys, bbox)}
 
                     if len(bbox) < 4:
