@@ -294,8 +294,8 @@ class AInnoFace(nn.Module):
 
         for level in range(6):
             downsampling_factor = 2 ** (level + 2)
-            level_height = im_height // downsampling_factor
-            level_width = im_width // downsampling_factor
+            level_height = cls_head_ss[level].shape[2]
+            level_width = cls_head_ss[level].shape[3]
 
             level_anchors = generate_anchor_boxes(height=level_height,
                                                   width=level_width,
