@@ -143,8 +143,8 @@ class AInnoFaceLoss(nn.Module):
                                     targets=local_target,
                                     alpha=0.25,
                                     gamma=2,
-                                    reduction='sum',
-                                ) / ss_positive_count
+                                    reduction='mean',
+                                )
                 ss_local_stc_loss += ss_stc_pos_loss
 
             if ss_negative_count > 0:
@@ -155,8 +155,8 @@ class AInnoFaceLoss(nn.Module):
                                     targets=local_target,
                                     alpha=0.25,
                                     gamma=2,
-                                    reduction='sum',
-                                ) / ss_negative_count
+                                    reduction='mean',
+                                )
                 ss_local_stc_loss += ss_stc_neg_loss
 
             #  if ss_positive_count > 0:
