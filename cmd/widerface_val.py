@@ -16,27 +16,24 @@ import numpy as np
 import tqdm
 import matplotlib.pyplot as plt
 import warnings
-
-
 warnings.filterwarnings('ignore')
 
 
-def eval_model_on_image(ainnoface: model.ainnoface.AInnoFace, image: np.ndarray) -> list:
+
+def process_proposals(proposals: torch.Tensor) -> list:
     bboxes = []
     scores = []
     result = []
 
-    with torch.no_grad():
-        model_input = [image,]
-        _, ss, _ = ainnoface(model_input)
-        proposals = ss.detach().cpu()[0]
+    t_bboxes = proposals[:, 0:4]
+    t_scores = torch.sigmoid(proposals[:, 4])
+    t_bboxes = t_bboxes[t_scores > 0.5]
+    t_scores = t_scores[t_scores > 0.5]
 
-    for bbox in proposals:
-        x, y, w, h, p, _ = bbox
-        p = torch.sigmoid(p)
-        if p > 0.5:
-            bboxes.append([x, y, w, h])
-            scores.append(p)
+    for bbox, score in zip(t_bboxes, t_scores):
+        x, y, w, h = bbox
+        bboxes.append([x, y, w, h])
+        scores.append(score)
 
     if len(bboxes) == 0:
         return []
@@ -57,6 +54,17 @@ def eval_model_on_image(ainnoface: model.ainnoface.AInnoFace, image: np.ndarray)
 
     return result
 
+
+
+def eval_model_on_image(ainnoface: model.ainnoface.AInnoFace,
+                        image: np.ndarray,
+                        device: torch.device) -> list:
+    with torch.no_grad():
+        model_input = [image,]
+        _, ss, _ = ainnoface(model_input, device)
+        proposals = ss.detach().cpu()[0]
+
+    return process_proposals(proposals)
 
 
 def pad_image_if_needed(pixels: np.ndarray, multiple_of: int) -> np.ndarray:
@@ -94,30 +102,71 @@ def write_meta(meta: list, output_path):
 
 
 
+def pad_image(pixels: np.ndarray, h: int, w: int) -> np.ndarray:
+    init_h, init_w, init_c = pixels.shape
+    result = np.zeros(shape=(h, w, init_c), dtype=np.uint8)
+    result[0:init_h, 0:init_w, 0:init_c] = pixels
+    return result
+
+
+
 def run_model(checkpoint: str, output_path: str):
     params = torch.load(checkpoint)
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    device_count = torch.cuda.device_count()
     ainnoface = model.ainnoface.AInnoFace()
     ainnoface.load_state_dict(params)
-    ainnoface = ainnoface.to(device)
     ainnoface.eval()
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    ainnoface = ainnoface.to(device)
 
     meta = []
     dataset = model.widerface.WIDERFACEDataset(
             root='data/WIDER_val/images/',
             meta='data/wider_face_split/wider_face_val_bbx_gt.txt')
 
+    filenames = []
+    batch = []
+
+    batch_size = 6
+    length = len(dataset)
+    idx = 0
+
     for image in tqdm.tqdm(dataset):
         pixels = image.pixels(format='numpy')
-        pixels = pad_image_if_needed(pixels, multiple_of=32)
-        result = eval_model_on_image(ainnoface, pixels)
 
-        meta.append({
-                'filename': image.filename,
-                'bboxes': result,
-            })
+        if len(batch) < batch_size:
+            batch.append(pixels)
+            filenames.append(image.filename)
 
-        write_meta(meta, output_path)
+        if (len(batch) == batch_size) or (idx + 1 == length):
+            max_height = 0
+            max_width = 0
+
+            for image in batch:
+                height, width, _ = image.shape
+                max_height = max(max_height, height)
+                max_width = max(max_width, width)
+
+            batch = [pad_image(x, h=max_height, w=max_width) for x in batch]
+            batch = [pad_image_if_needed(x, multiple_of=32) for x in batch]
+            batch = np.stack(batch, axis=0)
+
+            with torch.no_grad():
+                _, proposals, _ = ainnoface(batch, device)
+
+            for idx in range(len(batch)):
+                meta.append({
+                        'filename': filenames[idx],
+                        'bboxes': process_proposals(proposals[idx])
+                    })
+
+            write_meta(meta, output_path)
+            filenames = []
+            batch = []
+
+        idx += 1
 
 
 
