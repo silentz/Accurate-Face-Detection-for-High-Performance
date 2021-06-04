@@ -12,6 +12,25 @@ import argparse
 import torchvision
 import model.ainnoface
 import model.widerface
+import numpy as np
+
+
+def pad_image_if_needed(pixels: np.ndarray, multiple_of: int) -> np.ndarray:
+    height, width, channels = pixels.shape
+
+    if not height % multiple_of == 0:
+        pad_height = multiple_of - (height % multiple_of)
+        pad = np.zeros(shape=(pad_height, width, channels), dtype=np.uint8)
+        pixels = np.concatenate([pixels, pad], axis=0)
+
+    height, width, channels = pixels.shape
+
+    if not width % multiple_of == 0:
+        pad_width = multiple_of - (width % multiple_of)
+        pad = np.zeros(shape=(height, pad_width, channels), dtype=np.uint8)
+        pixels = np.concatenate([pixels, pad], axis=1)
+
+    return pixels
 
 
 
@@ -23,6 +42,7 @@ def run_model(checkpoint: str, image_path: str, output_path: str):
 
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    image = pad_image_if_needed(image, multiple_of=32)
 
     with torch.no_grad():
         model_input = [image,]
@@ -35,13 +55,12 @@ def run_model(checkpoint: str, image_path: str, output_path: str):
     candidates = []
     scores = []
 
-    for bbox in proposals:
-        x, y, w, h, p, level = bbox
-        if torch.sigmoid(p) > 0.5:
-            candidates.append([x, y, w, h])
-            scores.append(p)
+    bboxes = proposals[:, 0:4]
+    scores = torch.sigmoid(proposals[:, 4])
+    bboxes = bboxes[scores >= 0.2]
+    scores = scores[scores >= 0.2]
 
-    candidates = torch.Tensor(candidates)
+    candidates = torch.Tensor(bboxes)
     scores = torch.Tensor(scores)
     candidates = torchvision.ops.box_convert(candidates, in_fmt='xywh', out_fmt='xyxy')
     nms_boxes = torchvision.ops.nms(candidates, scores, 0.4)
