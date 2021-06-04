@@ -9,7 +9,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import torchvision.ops
-
 from typing import List
 
 # ===================== [CODE] ===================
@@ -107,8 +106,6 @@ class AInnoFaceLoss(nn.Module):
         ground_truth: (batch_size, n_boxes, 4)
             Ground truth bounding boxes for images.
         """
-
-        # TODO: add fs stage
 
         batch_size = ss_proposal.shape[0]
         target_boxes, target_score = self.get_target_boxes_with_scores(anchors, ground_truth)
