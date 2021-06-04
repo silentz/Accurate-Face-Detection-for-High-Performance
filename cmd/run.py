@@ -57,8 +57,9 @@ def run_model(checkpoint: str, image_path: str, output_path: str):
 
     bboxes = proposals[:, 0:4]
     scores = torch.sigmoid(proposals[:, 4])
-    bboxes = bboxes[scores >= 0.2]
-    scores = scores[scores >= 0.2]
+    score_threshold = 0.3
+    bboxes = bboxes[scores >= 0.3]
+    scores = scores[scores >= 0.3]
 
     candidates = torch.Tensor(bboxes)
     scores = torch.Tensor(scores)
