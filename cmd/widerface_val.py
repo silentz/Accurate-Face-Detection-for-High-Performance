@@ -27,19 +27,11 @@ def process_proposals(proposals: torch.Tensor) -> list:
 
     t_bboxes = proposals[:, 0:4]
     t_scores = torch.sigmoid(proposals[:, 4])
-    t_bboxes = t_bboxes[t_scores > 0.5]
-    t_scores = t_scores[t_scores > 0.5]
-
-    for bbox, score in zip(t_bboxes, t_scores):
-        x, y, w, h = bbox
-        bboxes.append([x, y, w, h])
-        scores.append(score)
+    t_bboxes = t_bboxes[t_scores >= 0.3]
+    t_scores = t_scores[t_scores >= 0.3]
 
     if len(bboxes) == 0:
         return []
-
-    bboxes = torch.Tensor(bboxes)
-    scores = torch.Tensor(scores)
 
     bboxes = torchvision.ops.box_convert(bboxes, in_fmt='xywh', out_fmt='xyxy')
     nms_bboxes = torchvision.ops.nms(bboxes, scores, 0.4)
@@ -129,7 +121,7 @@ def run_model(checkpoint: str, output_path: str):
     filenames = []
     batch = []
 
-    batch_size = 6
+    batch_size = 4
     length = len(dataset)
     idx = 0
 
